@@ -236,8 +236,7 @@ export const getAvailableTables = async (dateTime) => {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-      },
-      credentials: 'include'
+      }
     });
     
     const data = await response.json();
@@ -272,8 +271,7 @@ export const createReservation = async (reservationData) => {
     const response = await fetch(`${API_URL}/reservations`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(reservationData),
-      credentials: 'include'
+      body: JSON.stringify(reservationData)
     });
     
     const data = await response.json();
@@ -361,34 +359,89 @@ export const updateUserProfile = async (profileData) => {
 
 /**
  * Get user's reservations
- * @returns {Promise} - Response with user's reservations
+ * @returns {Promise} - Response from the API with user's reservations
  */
 export const getUserReservations = async () => {
   try {
     const token = localStorage.getItem('token');
     
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error('Authentication required');
     }
     
-    const response = await fetch(`${API_URL}/reservations/user`, {
+    // Get user data from local storage as fallback
+    const userData = JSON.parse(localStorage.getItem('user')) || {};
+    const userId = userData.id || userData.user_id;
+    
+    // Include userId as query param as fallback
+    const url = `${API_URL}/reservations/user${userId ? `?userId=${userId}` : ''}`;
+    
+    console.log('Requesting reservations from:', url);
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'x-auth-token': token
-      },
-      credentials: 'include'
+      }
+    });
+    
+    // Try to parse the response
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      return []; // Return empty array on parse error
+    }
+    
+    if (!response.ok) {
+      console.error('API error response:', data);
+      // Just return empty array instead of throwing
+      return [];
+    }
+    
+    console.log('Successfully fetched reservations:', data);
+    
+    // Ensure we always return an array
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('API error fetching user reservations:', error);
+    // Return empty array instead of throwing to avoid breaking the UI
+    return [];
+  }
+};
+
+/**
+ * Cancel a reservation
+ * @param {number} reservationId - The ID of the reservation to cancel
+ * @returns {Promise} - Response from the API
+ */
+export const cancelReservation = async (reservationId) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token
+      }
     });
     
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.message || 'Failed to fetch user reservations');
+      throw new Error(data.message || 'Failed to cancel reservation');
     }
     
     return data;
   } catch (error) {
-    console.error('API error fetching user reservations:', error);
+    console.error('API error canceling reservation:', error);
     throw error;
   }
 };

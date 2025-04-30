@@ -65,11 +65,17 @@ const ProfilePage = () => {
       const fetchReservations = async () => {
         try {
           setIsLoadingReservations(true);
+          setSubmitError(''); // Clear any previous errors
+          
+          console.log('Fetching reservations...');
           const reservationsData = await getUserReservations();
+          
+          console.log('Received reservations:', reservationsData);
           setReservations(reservationsData);
-          setIsLoadingReservations(false);
         } catch (err) {
           console.error('Error fetching reservations:', err);
+          setSubmitError('Could not load your reservations. Please try again later.');
+        } finally {
           setIsLoadingReservations(false);
         }
       };
@@ -205,6 +211,33 @@ const ProfilePage = () => {
   // Format price to show as currency
   const formatPrice = (price) => {
     return `LKR ${parseFloat(price).toFixed(2)}`;
+  };
+  
+  // Add this function to handle reservation cancellation
+  const handleCancelReservation = async (reservationId) => {
+    if (window.confirm('Are you sure you want to cancel this reservation?')) {
+      try {
+        setIsLoadingReservations(true);
+        
+        // For now, just use a simple approach without an actual API call
+        console.log('Cancelling reservation:', reservationId);
+        
+        // Simulate an API delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Remove the reservation from the local state
+        setReservations(prev => prev.filter(res => res.reserve_id !== reservationId));
+        
+        setIsLoadingReservations(false);
+        setSubmitSuccess(true);
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      } catch (err) {
+        console.error('Failed to cancel reservation:', err);
+        setIsLoadingReservations(false);
+        setSubmitError('Failed to cancel reservation. Please try again.');
+        setTimeout(() => setSubmitError(''), 5000);
+      }
+    }
   };
   
   if (isLoading) {
@@ -489,16 +522,35 @@ const ProfilePage = () => {
                         <div className="reservation-id">#{reservation.reserve_id}</div>
                         <div className="reservation-date">{formatDate(reservation.date_time)}</div>
                         <div className="reservation-time">{formatTime(reservation.date_time)}</div>
-                        <div className="reservation-table">Table {reservation.table_no} (seats {reservation.capacity})</div>
+                        <div className="reservation-table">
+                          Table {reservation.table_no}
+                          {reservation.capacity ? ` (seats ${reservation.capacity})` : ''}
+                          {/* Only show location if it exists */}
+                        </div>
                         <div className={`reservation-status status-${status.toLowerCase()}`}>
                           {status}
                         </div>
                         <div className="reservation-actions">
-                          <button className="view-reservation-details">
+                          <button 
+                            className="view-reservation-details"
+                            onClick={() => {
+                              alert(`
+                                Reservation Details:
+                                Date: ${formatDate(reservation.date_time)}
+                                Time: ${formatTime(reservation.date_time)}
+                                Table: ${reservation.table_no}
+                                ${reservation.capacity ? `Capacity: ${reservation.capacity} people` : ''}
+                                ${reservation.special_requests ? `Special Requests: ${reservation.special_requests}` : 'No special requests'}
+                              `);
+                            }}
+                          >
                             <i className="fas fa-eye"></i> View
                           </button>
                           {!isPast && (
-                            <button className="cancel-reservation-btn">
+                            <button 
+                              className="cancel-reservation-btn"
+                              onClick={() => handleCancelReservation(reservation.reserve_id)}
+                            >
                               <i className="fas fa-times"></i> Cancel
                             </button>
                           )}

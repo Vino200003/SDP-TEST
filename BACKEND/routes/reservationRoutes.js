@@ -12,7 +12,11 @@ router.post('/', reservationController.createReservation);
 
 // Protected routes - require authentication
 router.get('/', auth, reservationController.getAllReservations);
+
+// Make sure this route comes before any routes with parameters (like '/:id')
+// to avoid parameter conflicts
 router.get('/user', auth, reservationController.getUserReservations);
+
 router.get('/:id', auth, reservationController.getReservationById);
 router.put('/:id', auth, reservationController.updateReservation);
 router.delete('/:id', auth, reservationController.deleteReservation);

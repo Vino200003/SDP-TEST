@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { isDateTimeAvailable, getAvailableTables } = require('../utils/reservationUtils');
+const jwt = require('jsonwebtoken');
 
 /**
  * Get all reservations (admin only)
@@ -30,27 +31,82 @@ exports.getAllReservations = (req, res) => {
  * Get reservations for a specific user
  */
 exports.getUserReservations = (req, res) => {
-  const userId = req.params.userId;
-  
-  const query = `
-    SELECT r.*, t.capacity
-    FROM reservations r
-    LEFT JOIN tables t ON r.table_no = t.table_no
-    WHERE r.user_id = ?
-    ORDER BY r.date_time DESC
-  `;
-  
-  db.query(query, [userId], (err, results) => {
-    if (err) {
-      console.error('Error fetching user reservations:', err);
-      return res.status(500).json({ 
-        message: 'Error fetching reservations', 
-        error: err.message 
-      });
+  try {
+    // Get user ID from different possible sources
+    let userId = null;
+    
+    // From authentication token
+    if (req.user && (req.user.id || req.user.user_id)) {
+      userId = req.user.id || req.user.user_id;
     }
     
-    res.json(results);
-  });
+    // Or from query parameter as fallback
+    if (!userId && req.query.userId) {
+      userId = req.query.userId;
+    }
+    
+    console.log('Fetching reservations for user ID:', userId);
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    
+    // First, check the structure of the tables table
+    db.query('DESCRIBE tables', (descErr, columns) => {
+      if (descErr) {
+        console.error('Error checking table structure:', descErr);
+        return res.status(500).json({ 
+          message: 'Error checking table structure', 
+          error: descErr.message 
+        });
+      }
+      
+      // Build the query dynamically based on existing columns
+      const columnNames = columns.map(col => col.Field);
+      console.log('Available columns in tables:', columnNames);
+      
+      // Include only existing columns in the query
+      const selectFields = ['r.*', 't.capacity'];
+      
+      if (columnNames.includes('location')) {
+        selectFields.push('t.location');
+      }
+      
+      if (columnNames.includes('description')) {
+        selectFields.push('t.description');
+      }
+      
+      // If none of the table columns are in the tables table, we'll just select from reservations
+      const query = `
+        SELECT ${selectFields.join(', ')}
+        FROM reservations r
+        LEFT JOIN tables t ON r.table_no = t.table_no
+        WHERE r.user_id = ?
+        ORDER BY r.date_time DESC
+      `;
+      
+      db.query(query, [userId], (err, results) => {
+        if (err) {
+          console.error('Database error fetching user reservations:', err);
+          return res.status(500).json({ 
+            message: 'Error fetching reservations', 
+            error: err.message 
+          });
+        }
+        
+        console.log(`Found ${results.length} reservations for user ${userId}`);
+        
+        // Return empty array if no reservations found
+        res.json(results || []);
+      });
+    });
+  } catch (error) {
+    console.error('Server error in getUserReservations:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
 };
 
 /**
