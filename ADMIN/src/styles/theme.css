@@ -1,0 +1,24 @@
+:root {
+  /* Primary brand colors */
+  --primary-color: #ffc107;       /* Main brand color (yellow) */
+  --primary-dark: #ff9800;        /* Darker shade for hover states */
+  --primary-light: #fff3cd;       /* Lighter shade for backgrounds */
+  
+  /* Secondary/accent colors */
+  --accent-color: #212121;        /* Accent color (black) */
+  --accent-dark: #000000;         /* Darker accent for contrast */
+  --accent-light: #484848;        /* Lighter accent for subtle elements */
+  
+  /* UI colors */
+  --background-color: #f8f9fa;    /* Main background color */
+  --card-color: #ffffff;          /* Card background color */
+  --text-color: #212121;          /* Main text color */
+  --text-light: #484848;          /* Secondary text color */
+  --border-color: #e0e0e0;        /* Border color */
+  
+  /* Status colors */
+  --success-color: #4caf50;       /* Green for success */
+  --warning-color: #ffc107;       /* Yellow for warnings */
+  --error-color: #f44336;         /* Red for errors */
+  --info-color: #212121;          /* Black for info */
+}
