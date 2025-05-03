@@ -34,7 +34,7 @@ app.use('/images', express.static(path.join(__dirname, '../FRONTEND/public')));
 
 // API Routes - make sure this is correctly configured
 app.use('/api/users', userRoutes);
-app.use('/api/menu', menuRoutes);
+app.use('/api/menu', menuRoutes); // This is important - ensure it's '/api/menu'
 app.use('/api/reservations', reservationRoutes); // Add reservation routes
 
 // Default route - add more logging to help with debugging

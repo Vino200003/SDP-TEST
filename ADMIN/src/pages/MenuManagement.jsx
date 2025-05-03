@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import '../styles/MenuManagement.css';
+import * as menuService from '../services/menuService';
+// import { toast } from 'react-toastify'; // Uncomment after installing react-toastify
 
 function MenuManagement() {
   // State for menu items
@@ -9,6 +11,7 @@ function MenuManagement() {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [currentView, setCurrentView] = useState('menu'); // 'menu', 'categories', 'subcategories'
+  const [isLoading, setIsLoading] = useState(false);
   
   // State for forms
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -40,164 +43,225 @@ function MenuManagement() {
     category_code: '' 
   });
 
-  // Fetch menu items, categories, and subcategories (mock data for now)
+  // Simple notification function until react-toastify is installed
+  const notify = (message, type = 'info') => {
+    console.log(`[${type}] ${message}`);
+    alert(message);
+  };
+
+  // Fetch data whenever the view changes
   useEffect(() => {
-    // Simulating API calls - replace with actual API calls to your backend
-    const fetchMenuData = () => {
-      // Mock data - replace with API calls
-      const mockMenuItems = [
-        { menu_id: 1, menu_name: 'Margherita Pizza', price: 12.99, status: 'available', category_code: 1, subcategory_code: 1, image_url: 'pizza1.jpg' },
-        { menu_id: 2, menu_name: 'Pepperoni Pizza', price: 14.99, status: 'available', category_code: 1, subcategory_code: 1, image_url: 'pizza2.jpg' },
-        { menu_id: 3, menu_name: 'Caesar Salad', price: 8.99, status: 'available', category_code: 2, subcategory_code: 3, image_url: 'salad1.jpg' },
-        { menu_id: 4, menu_name: 'Chocolate Cake', price: 6.99, status: 'available', category_code: 3, subcategory_code: 5, image_url: 'dessert1.jpg' },
-      ];
+    fetchData();
+  }, [currentView]);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      // Always fetch categories as they're needed across views
+      const categoriesData = await menuService.getAllCategories();
+      setCategories(categoriesData);
+
+      // Fetch data based on current view
+      if (currentView === 'menu' || currentView === 'subcategories') {
+        const menuItemsData = await menuService.getAllMenuItems();
+        setMenuItems(menuItemsData);
+      }
+
+      if (currentView === 'subcategories') {
+        const subcategoriesData = await menuService.getAllSubcategories();
+        setSubcategories(subcategoriesData);
+      }
       
-      const mockCategories = [
-        { category_code: 1, category_name: 'Main Course' },
-        { category_code: 2, category_name: 'Appetizers' },
-        { category_code: 3, category_name: 'Desserts' },
-      ];
-      
-      const mockSubcategories = [
-        { subcategory_code: 1, subcategory_name: 'Pizza', category_code: 1 },
-        { subcategory_code: 2, subcategory_name: 'Pasta', category_code: 1 },
-        { subcategory_code: 3, subcategory_name: 'Salads', category_code: 2 },
-        { subcategory_code: 4, subcategory_name: 'Soups', category_code: 2 },
-        { subcategory_code: 5, subcategory_name: 'Cakes', category_code: 3 },
-      ];
-      
-      setMenuItems(mockMenuItems);
-      setCategories(mockCategories);
-      setSubcategories(mockSubcategories);
-    };
-    
-    fetchMenuData();
-  }, []);
+    } catch (error) {
+      notify(`Error fetching data: ${error.response?.data?.message || error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Handle adding a new menu item
-  const handleAddItem = () => {
-    // In a real app, you would send this to your API
-    const newId = menuItems.length + 1;
-    const itemToAdd = { ...newItem, menu_id: newId };
-    setMenuItems([...menuItems, itemToAdd]);
-    setIsAddModalOpen(false);
-    setNewItem({
-      menu_name: '',
-      price: '',
-      status: 'available',
-      category_code: '',
-      subcategory_code: '',
-      image_url: ''
-    });
+  const handleAddItem = async () => {
+    try {
+      const result = await menuService.createMenuItem(newItem);
+      notify('Menu item added successfully!', 'success');
+      setMenuItems([...menuItems, { ...newItem, menu_id: result.menu_id }]);
+      setIsAddModalOpen(false);
+      setNewItem({
+        menu_name: '',
+        price: '',
+        status: 'available',
+        category_code: '',
+        subcategory_code: '',
+        image_url: ''
+      });
+      fetchData();
+    } catch (error) {
+      notify(`Error adding menu item: ${error.response?.data?.message || error.message}`, 'error');
+    }
   };
   
   // Handle editing a menu item
-  const handleEditItem = () => {
+  const handleEditItem = async () => {
     if (!currentItem) return;
     
-    // In a real app, you would send this to your API
-    const updatedItems = menuItems.map(item => 
-      item.menu_id === currentItem.menu_id ? currentItem : item
-    );
-    
-    setMenuItems(updatedItems);
-    setIsEditModalOpen(false);
-    setCurrentItem(null);
+    try {
+      await menuService.updateMenuItem(currentItem.menu_id, currentItem);
+      notify('Menu item updated successfully!', 'success');
+      
+      const updatedItems = menuItems.map(item => 
+        item.menu_id === currentItem.menu_id ? currentItem : item
+      );
+      
+      setMenuItems(updatedItems);
+      setIsEditModalOpen(false);
+      setCurrentItem(null);
+      fetchData();
+    } catch (error) {
+      notify(`Error updating menu item: ${error.response?.data?.message || error.message}`, 'error');
+    }
   };
   
   // Handle deleting a menu item
-  const handleDeleteItem = (id) => {
+  const handleDeleteItem = async (id) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
-      // In a real app, you would send this to your API
-      const filteredItems = menuItems.filter(item => item.menu_id !== id);
-      setMenuItems(filteredItems);
+      try {
+        await menuService.deleteMenuItem(id);
+        notify('Menu item deleted successfully!', 'success');
+        
+        const filteredItems = menuItems.filter(item => item.menu_id !== id);
+        setMenuItems(filteredItems);
+      } catch (error) {
+        notify(`Error deleting menu item: ${error.response?.data?.message || error.message}`, 'error');
+      }
     }
   };
   
   // Handle adding a new category
-  const handleAddCategory = () => {
-    // In a real app, you would send this to your API
-    const newId = categories.length + 1;
-    const categoryToAdd = { ...newCategory, category_code: newId };
-    setCategories([...categories, categoryToAdd]);
-    setIsAddCategoryModalOpen(false);
-    setNewCategory({ category_name: '' });
+  const handleAddCategory = async () => {
+    try {
+      const result = await menuService.createCategory(newCategory);
+      notify('Category added successfully!', 'success');
+      
+      setCategories([...categories, { ...newCategory, category_code: result.category_code }]);
+      setIsAddCategoryModalOpen(false);
+      setNewCategory({ category_name: '' });
+    } catch (error) {
+      notify(`Error adding category: ${error.response?.data?.message || error.message}`, 'error');
+    }
   };
   
   // Handle editing a category
-  const handleEditCategory = () => {
+  const handleEditCategory = async () => {
     if (!currentCategory) return;
     
-    // In a real app, you would send this to your API
-    const updatedCategories = categories.map(category => 
-      category.category_code === currentCategory.category_code ? currentCategory : category
-    );
-    
-    setCategories(updatedCategories);
-    setIsEditCategoryModalOpen(false);
-    setCurrentCategory(null);
+    try {
+      await menuService.updateCategory(currentCategory.category_code, currentCategory);
+      notify('Category updated successfully!', 'success');
+      
+      const updatedCategories = categories.map(category => 
+        category.category_code === currentCategory.category_code ? currentCategory : category
+      );
+      
+      setCategories(updatedCategories);
+      setIsEditCategoryModalOpen(false);
+      setCurrentCategory(null);
+    } catch (error) {
+      notify(`Error updating category: ${error.response?.data?.message || error.message}`, 'error');
+    }
   };
   
   // Handle deleting a category
-  const handleDeleteCategory = (id) => {
+  const handleDeleteCategory = async (id) => {
     // Check if category has menu items
     const hasItems = menuItems.some(item => item.category_code === id);
     if (hasItems) {
-      alert('Cannot delete category that has menu items. Please reassign or delete the items first.');
+      notify('Cannot delete category that has menu items. Please reassign or delete the items first.', 'warning');
       return;
     }
     
     // Check if category has subcategories
     const hasSubcategories = subcategories.some(sub => sub.category_code === id);
     if (hasSubcategories) {
-      alert('Cannot delete category that has subcategories. Please reassign or delete the subcategories first.');
+      notify('Cannot delete category that has subcategories. Please reassign or delete the subcategories first.', 'warning');
       return;
     }
     
     if (window.confirm('Are you sure you want to delete this category?')) {
-      // In a real app, you would send this to your API
-      const filteredCategories = categories.filter(category => category.category_code !== id);
-      setCategories(filteredCategories);
+      try {
+        await menuService.deleteCategory(id);
+        notify('Category deleted successfully!', 'success');
+        
+        const filteredCategories = categories.filter(category => category.category_code !== id);
+        setCategories(filteredCategories);
+      } catch (error) {
+        notify(`Error deleting category: ${error.response?.data?.message || error.message}`, 'error');
+      }
     }
   };
   
   // Handle adding a new subcategory
-  const handleAddSubcategory = () => {
-    // In a real app, you would send this to your API
-    const newId = subcategories.length + 1;
-    const subcategoryToAdd = { ...newSubcategory, subcategory_code: newId };
-    setSubcategories([...subcategories, subcategoryToAdd]);
-    setIsAddSubcategoryModalOpen(false);
-    setNewSubcategory({ subcategory_name: '', category_code: '' });
+  const handleAddSubcategory = async () => {
+    try {
+      const result = await menuService.createSubcategory(newSubcategory);
+      notify('Subcategory added successfully!', 'success');
+      
+      setSubcategories([...subcategories, { 
+        ...newSubcategory, 
+        subcategory_code: result.subcategory_code 
+      }]);
+      setIsAddSubcategoryModalOpen(false);
+      setNewSubcategory({ subcategory_name: '', category_code: '' });
+    } catch (error) {
+      notify(`Error adding subcategory: ${error.response?.data?.message || error.message}`, 'error');
+    }
   };
   
   // Handle editing a subcategory
-  const handleEditSubcategory = () => {
+  const handleEditSubcategory = async () => {
     if (!currentSubcategory) return;
     
-    // In a real app, you would send this to your API
-    const updatedSubcategories = subcategories.map(subcategory => 
-      subcategory.subcategory_code === currentSubcategory.subcategory_code ? currentSubcategory : subcategory
-    );
-    
-    setSubcategories(updatedSubcategories);
-    setIsEditSubcategoryModalOpen(false);
-    setCurrentSubcategory(null);
+    try {
+      await menuService.updateSubcategory(
+        currentSubcategory.subcategory_code, 
+        currentSubcategory
+      );
+      notify('Subcategory updated successfully!', 'success');
+      
+      const updatedSubcategories = subcategories.map(subcategory => 
+        subcategory.subcategory_code === currentSubcategory.subcategory_code 
+          ? currentSubcategory 
+          : subcategory
+      );
+      
+      setSubcategories(updatedSubcategories);
+      setIsEditSubcategoryModalOpen(false);
+      setCurrentSubcategory(null);
+    } catch (error) {
+      notify(`Error updating subcategory: ${error.response?.data?.message || error.message}`, 'error');
+    }
   };
   
   // Handle deleting a subcategory
-  const handleDeleteSubcategory = (id) => {
+  const handleDeleteSubcategory = async (id) => {
     // Check if subcategory has menu items
     const hasItems = menuItems.some(item => item.subcategory_code === id);
     if (hasItems) {
-      alert('Cannot delete subcategory that has menu items. Please reassign or delete the items first.');
+      notify('Cannot delete subcategory that has menu items. Please reassign or delete the items first.', 'warning');
       return;
     }
     
     if (window.confirm('Are you sure you want to delete this subcategory?')) {
-      // In a real app, you would send this to your API
-      const filteredSubcategories = subcategories.filter(subcategory => subcategory.subcategory_code !== id);
-      setSubcategories(filteredSubcategories);
+      try {
+        await menuService.deleteSubcategory(id);
+        notify('Subcategory deleted successfully!', 'success');
+        
+        const filteredSubcategories = subcategories.filter(
+          subcategory => subcategory.subcategory_code !== id
+        );
+        setSubcategories(filteredSubcategories);
+      } catch (error) {
+        notify(`Error deleting subcategory: ${error.response?.data?.message || error.message}`, 'error');
+      }
     }
   };
   
@@ -209,7 +273,21 @@ function MenuManagement() {
   
   const getSubcategoryName = (code) => {
     const subcategory = subcategories.find(sub => sub.subcategory_code === code);
-    return subcategory ? subcategory.subcategory_name : 'Unknown';
+    return subcategory ? sub.subcategory_name : 'Unknown';
+  };
+
+  // Handle category selection in new item form to load relevant subcategories
+  const handleCategorySelect = async (categoryCode) => {
+    setNewItem({ ...newItem, category_code: parseInt(categoryCode), subcategory_code: '' });
+    
+    if (categoryCode) {
+      try {
+        const subcategoriesData = await menuService.getSubcategoriesByCategory(categoryCode);
+        setSubcategories(subcategoriesData);
+      } catch (error) {
+        notify(`Error loading subcategories: ${error.response?.data?.message || error.message}`, 'error');
+      }
+    }
   };
 
   return (
@@ -239,198 +317,204 @@ function MenuManagement() {
           </button>
         </div>
         
-        {/* Menu Items View */}
-        {currentView === 'menu' && (
-          <div className="menu-items-section">
-            <div className="section-header">
-              <h2>Menu Items</h2>
-              <button 
-                className="add-button"
-                onClick={() => setIsAddModalOpen(true)}
-              >
-                Add New Item
-              </button>
-            </div>
+        {isLoading ? (
+          <div className="loading-spinner">Loading...</div>
+        ) : (
+          <>
+            {/* Menu Items View */}
+            {currentView === 'menu' && (
+              <div className="menu-items-section">
+                <div className="section-header">
+                  <h2>Menu Items</h2>
+                  <button 
+                    className="add-button"
+                    onClick={() => setIsAddModalOpen(true)}
+                  >
+                    Add New Item
+                  </button>
+                </div>
+                
+                <div className="menu-items-list">
+                  <table className="menu-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Image</th>
+                        <th>Name</th>
+                        <th>Price</th>
+                        <th>Category</th>
+                        <th>Subcategory</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {menuItems.map(item => (
+                        <tr key={item.menu_id}>
+                          <td>{item.menu_id}</td>
+                          <td>
+                            <div className="menu-item-image">
+                              {item.image_url ? (
+                                <img src={item.image_url} alt={item.menu_name} />
+                              ) : (
+                                <div className="no-image">No Image</div>
+                              )}
+                            </div>
+                          </td>
+                          <td>{item.menu_name}</td>
+                          <td>${item.price}</td>
+                          <td>{item.category_name || getCategoryName(item.category_code)}</td>
+                          <td>{item.subcategory_name || getSubcategoryName(item.subcategory_code)}</td>
+                          <td>
+                            <span className={`status-badge ${item.status}`}>
+                              {item.status === 'available' ? 'Available' : 'Out of Stock'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button 
+                                className="edit-button"
+                                onClick={() => {
+                                  setCurrentItem(item);
+                                  setIsEditModalOpen(true);
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                className="delete-button"
+                                onClick={() => handleDeleteItem(item.menu_id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             
-            <div className="menu-items-list">
-              <table className="menu-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>Price</th>
-                    <th>Category</th>
-                    <th>Subcategory</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {menuItems.map(item => (
-                    <tr key={item.menu_id}>
-                      <td>{item.menu_id}</td>
-                      <td>
-                        <div className="menu-item-image">
-                          {item.image_url ? (
-                            <img src={`/src/assets/menu/${item.image_url}`} alt={item.menu_name} />
-                          ) : (
-                            <div className="no-image">No Image</div>
-                          )}
-                        </div>
-                      </td>
-                      <td>{item.menu_name}</td>
-                      <td>${item.price}</td>
-                      <td>{getCategoryName(item.category_code)}</td>
-                      <td>{getSubcategoryName(item.subcategory_code)}</td>
-                      <td>
-                        <span className={`status-badge ${item.status}`}>
-                          {item.status === 'available' ? 'Available' : 'Out of Stock'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="edit-button"
-                            onClick={() => {
-                              setCurrentItem(item);
-                              setIsEditModalOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="delete-button"
-                            onClick={() => handleDeleteItem(item.menu_id)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        
-        {/* Updated Categories View */}
-        {currentView === 'categories' && (
-          <div className="categories-section">
-            <div className="section-header">
-              <h2>Categories</h2>
-              <button 
-                className="add-button" 
-                onClick={() => setIsAddCategoryModalOpen(true)}
-              >
-                Add Category
-              </button>
-            </div>
+            {/* Categories View */}
+            {currentView === 'categories' && (
+              <div className="categories-section">
+                <div className="section-header">
+                  <h2>Categories</h2>
+                  <button 
+                    className="add-button" 
+                    onClick={() => setIsAddCategoryModalOpen(true)}
+                  >
+                    Add Category
+                  </button>
+                </div>
+                
+                <div className="categories-list">
+                  <table className="category-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Items Count</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {categories.map(category => (
+                        <tr key={category.category_code}>
+                          <td>{category.category_code}</td>
+                          <td>{category.category_name}</td>
+                          <td>
+                            {menuItems.filter(item => item.category_code === category.category_code).length}
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button 
+                                className="edit-button"
+                                onClick={() => {
+                                  setCurrentCategory(category);
+                                  setIsEditCategoryModalOpen(true);
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                className="delete-button"
+                                onClick={() => handleDeleteCategory(category.category_code)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             
-            <div className="categories-list">
-              <table className="category-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Items Count</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categories.map(category => (
-                    <tr key={category.category_code}>
-                      <td>{category.category_code}</td>
-                      <td>{category.category_name}</td>
-                      <td>
-                        {menuItems.filter(item => item.category_code === category.category_code).length}
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="edit-button"
-                            onClick={() => {
-                              setCurrentCategory(category);
-                              setIsEditCategoryModalOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="delete-button"
-                            onClick={() => handleDeleteCategory(category.category_code)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        
-        {/* Updated Subcategories View */}
-        {currentView === 'subcategories' && (
-          <div className="subcategories-section">
-            <div className="section-header">
-              <h2>Subcategories</h2>
-              <button 
-                className="add-button"
-                onClick={() => setIsAddSubcategoryModalOpen(true)}
-              >
-                Add Subcategory
-              </button>
-            </div>
-            
-            <div className="subcategories-list">
-              <table className="subcategory-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Parent Category</th>
-                    <th>Items Count</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {subcategories.map(subcategory => (
-                    <tr key={subcategory.subcategory_code}>
-                      <td>{subcategory.subcategory_code}</td>
-                      <td>{subcategory.subcategory_name}</td>
-                      <td>{getCategoryName(subcategory.category_code)}</td>
-                      <td>
-                        {menuItems.filter(item => item.subcategory_code === subcategory.subcategory_code).length}
-                      </td>
-                      <td>
-                        <div className="action-buttons">
-                          <button 
-                            className="edit-button"
-                            onClick={() => {
-                              setCurrentSubcategory(subcategory);
-                              setIsEditSubcategoryModalOpen(true);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            className="delete-button"
-                            onClick={() => handleDeleteSubcategory(subcategory.subcategory_code)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            {/* Subcategories View */}
+            {currentView === 'subcategories' && (
+              <div className="subcategories-section">
+                <div className="section-header">
+                  <h2>Subcategories</h2>
+                  <button 
+                    className="add-button"
+                    onClick={() => setIsAddSubcategoryModalOpen(true)}
+                  >
+                    Add Subcategory
+                  </button>
+                </div>
+                
+                <div className="subcategories-list">
+                  <table className="subcategory-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Parent Category</th>
+                        <th>Items Count</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subcategories.map(subcategory => (
+                        <tr key={subcategory.subcategory_code}>
+                          <td>{subcategory.subcategory_code}</td>
+                          <td>{subcategory.subcategory_name}</td>
+                          <td>{subcategory.category_name || getCategoryName(subcategory.category_code)}</td>
+                          <td>
+                            {menuItems.filter(item => item.subcategory_code === subcategory.subcategory_code).length}
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button 
+                                className="edit-button"
+                                onClick={() => {
+                                  setCurrentSubcategory(subcategory);
+                                  setIsEditSubcategoryModalOpen(true);
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                className="delete-button"
+                                onClick={() => handleDeleteSubcategory(subcategory.subcategory_code)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
         )}
         
         {/* Add Item Modal */}
@@ -463,7 +547,7 @@ function MenuManagement() {
                 <label>Category</label>
                 <select
                   value={newItem.category_code}
-                  onChange={(e) => setNewItem({...newItem, category_code: parseInt(e.target.value)})}
+                  onChange={(e) => handleCategorySelect(e.target.value)}
                 >
                   <option value="">Select Category</option>
                   {categories.map(category => (
@@ -479,6 +563,7 @@ function MenuManagement() {
                 <select
                   value={newItem.subcategory_code}
                   onChange={(e) => setNewItem({...newItem, subcategory_code: parseInt(e.target.value)})}
+                  disabled={!newItem.category_code}
                 >
                   <option value="">Select Subcategory</option>
                   {subcategories
