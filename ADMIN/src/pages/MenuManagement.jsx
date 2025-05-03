@@ -362,7 +362,7 @@ function MenuManagement() {
                             </div>
                           </td>
                           <td>{item.menu_name}</td>
-                          <td>${item.price}</td>
+                          <td>LKR {item.price}</td>
                           <td>{item.category_name || getCategoryName(item.category_code)}</td>
                           <td>{item.subcategory_name || getSubcategoryName(item.subcategory_code)}</td>
                           <td>
