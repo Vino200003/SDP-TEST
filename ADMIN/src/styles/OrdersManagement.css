@@ -265,6 +265,22 @@
   border-radius: 4px;
   font-size: 0.8rem;
   background-color: white;
+  color: #212529;
+  font-weight: 500;
+  min-width: 120px;
+  cursor: pointer;
+  appearance: menulist;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.status-update-select:hover {
+  border-color: #adb5bd;
+}
+
+.status-update-select option {
+  padding: 8px;
+  font-weight: normal;
+  color: #212529;
 }
 
 .no-orders {
