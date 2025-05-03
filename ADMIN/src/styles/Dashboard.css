@@ -1,6 +1,6 @@
 .dashboard-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
   background-color: var(--background-color);
   overflow-x: hidden;
@@ -8,10 +8,17 @@
 
 .dashboard-content {
   flex: 1;
-  padding: 15px 20px;
+  padding: 20px;
   overflow-y: auto;
-  width: 100%;
-  margin-left: 220px; /* Match sidebar width */
+  margin-left: 250px; /* Adjust based on your sidebar width */
+  width: calc(100% - 250px); /* Subtract sidebar width */
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .dashboard-stats {
