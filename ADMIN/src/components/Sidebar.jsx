@@ -31,6 +31,7 @@ function Sidebar() {
               Orders
             </Link>
           </li>
+          
           <li>
             <Link to="/reservations" className={`nav-link ${location.pathname === '/reservations' ? 'active' : ''}`}>
               <span className="icon">📅</span>

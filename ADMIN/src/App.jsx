@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import MenuManagement from './pages/MenuManagement';
+import OrdersManagement from './pages/OrdersManagement';
 // Import placeholder components for other pages
 import PlaceholderPage from './components/PlaceholderPage';
 import './App.css';
@@ -10,7 +11,7 @@ function App() {
     <Routes>
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/menu-management" element={<MenuManagement />} />
-      <Route path="/orders" element={<PlaceholderPage title="Orders" />} />
+      <Route path="/orders" element={<OrdersManagement />} />
       <Route path="/reservations" element={<PlaceholderPage title="Table Reservations" />} />
       <Route path="/inventory" element={<PlaceholderPage title="Inventory" />} />
       <Route path="/staff" element={<PlaceholderPage title="Staff Management" />} />
