@@ -1,19 +1,25 @@
 import axios from 'axios';
 
 // Set the base URL for all API requests
-const API_URL = 'http://localhost:3000/api'; // Replace with your API URL
+const API_URL = 'http://localhost:5000/api'; // Update to your backend API port
 
 // Get all orders with optional filtering
 export const getAllOrders = async (filters = {}) => {
   try {
-    // In a real application, you would pass these filters as query parameters
-    const response = await axios.get(`${API_URL}/orders`, { params: filters });
+    // Convert filters to query parameters compatible with the backend
+    const params = {
+      page: filters.page || 1,
+      limit: filters.limit || 10,
+      status: filters.status || '',
+      type: filters.orderType || '',
+      // Add other filters as needed
+    };
+    
+    const response = await axios.get(`${API_URL}/orders`, { params });
     return response.data;
   } catch (error) {
     console.error('Error fetching orders:', error);
-    
-    // For development/demo purposes, return mock data when API is not available
-    return mockOrders;
+    throw error;
   }
 };
 
@@ -24,9 +30,7 @@ export const getOrderById = async (orderId) => {
     return response.data;
   } catch (error) {
     console.error(`Error fetching order #${orderId}:`, error);
-    
-    // Return a mock order with this ID for development
-    return mockOrders.find(order => order.order_id === parseInt(orderId)) || null;
+    throw error;
   }
 };
 
@@ -34,14 +38,12 @@ export const getOrderById = async (orderId) => {
 export const updateOrderStatus = async (orderId, newStatus) => {
   try {
     const response = await axios.patch(`${API_URL}/orders/${orderId}/status`, { 
-      status: newStatus 
+      order_status: newStatus // Using the exact field name expected by the backend
     });
     return response.data;
   } catch (error) {
     console.error(`Error updating order #${orderId} status:`, error);
-    
-    // For development, just return success
-    return { success: true, message: 'Order status updated successfully' };
+    throw error;
   }
 };
 
@@ -83,6 +85,32 @@ export const getOrdersByStatus = async (status) => {
     
     // Return filtered mock data for development
     return mockOrders.filter(order => order.order_status === status);
+  }
+};
+
+// Get order statistics
+export const getOrderStats = async (startDate, endDate) => {
+  try {
+    const params = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    
+    const response = await axios.get(`${API_URL}/orders/stats`, { params });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching order statistics:', error);
+    throw error;
+  }
+};
+
+// Delete an order
+export const deleteOrder = async (orderId) => {
+  try {
+    const response = await axios.delete(`${API_URL}/orders/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting order #${orderId}:`, error);
+    throw error;
   }
 };
 

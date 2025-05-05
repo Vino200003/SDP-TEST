@@ -12,6 +12,19 @@ function OrdersManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [orderStats, setOrderStats] = useState({
+    total_orders: 0,
+    pending: 0,
+    completed: 0,
+    cancelled: 0,
+    in_progress: 0
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 1
+  });
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -21,7 +34,9 @@ function OrdersManagement() {
       startDate: '',
       endDate: ''
     },
-    searchTerm: ''
+    searchTerm: '',
+    page: 1,
+    limit: 10
   });
 
   // Simple notification function until react-toastify is installed
@@ -30,22 +45,41 @@ function OrdersManagement() {
     alert(message);
   };
 
-  // Fetch orders on component mount
+  // Fetch orders and stats on component mount
   useEffect(() => {
     fetchOrders();
+    fetchOrderStats();
   }, []);
 
-  // Apply filters when filter state changes
+  // Fetch orders when filters change
   useEffect(() => {
-    applyFilters();
-  }, [filters, orders]);
+    fetchOrders();
+  }, [filters.page, filters.limit, filters.status, filters.orderType]);
 
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const data = await orderService.getAllOrders();
-      setOrders(data);
-      setFilteredOrders(data);
+      const data = await orderService.getAllOrders({
+        page: filters.page,
+        limit: filters.limit,
+        status: filters.status,
+        orderType: filters.orderType,
+      });
+      
+      // Check the structure of the returned data
+      if (data.orders) {
+        setOrders(data.orders);
+        setFilteredOrders(data.orders);
+        
+        // If pagination info is provided
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
+      } else {
+        // If orders data is at the root level (depends on your API)
+        setOrders(data);
+        setFilteredOrders(data);
+      }
     } catch (error) {
       notify(`Error fetching orders: ${error.message}`, 'error');
     } finally {
@@ -53,40 +87,42 @@ function OrdersManagement() {
     }
   };
 
-  const applyFilters = () => {
-    let result = [...orders];
-    
-    // Filter by status
-    if (filters.status) {
-      result = result.filter(order => order.order_status === filters.status);
-    }
-    
-    // Filter by order type
-    if (filters.orderType) {
-      result = result.filter(order => order.order_type === filters.orderType);
-    }
-    
-    // Filter by date range
-    if (filters.dateRange.startDate && filters.dateRange.endDate) {
-      const startDate = new Date(filters.dateRange.startDate);
-      const endDate = new Date(filters.dateRange.endDate);
-      
-      result = result.filter(order => {
-        const orderDate = new Date(order.created_at);
-        return orderDate >= startDate && orderDate <= endDate;
-      });
-    }
-    
-    // Filter by search term
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      result = result.filter(
-        order => 
-          order.order_id.toString().includes(searchLower) ||
-          (order.user_name && order.user_name.toLowerCase().includes(searchLower))
+  const fetchOrderStats = async () => {
+    try {
+      const data = await orderService.getOrderStats(
+        filters.dateRange.startDate,
+        filters.dateRange.endDate
       );
+      
+      // Set stats based on the returned data structure
+      setOrderStats({
+        total_orders: data.total_orders || 0,
+        pending: data.pending_orders || 0,
+        completed: data.completed_orders || 0,
+        cancelled: data.cancelled_orders || 0,
+        in_progress: data.orders_in_progress || 0
+      });
+    } catch (error) {
+      console.error('Error fetching order stats:', error);
     }
-    
+  };
+
+  // Apply search filter locally
+  useEffect(() => {
+    if (filters.searchTerm) {
+      applySearchFilter();
+    } else {
+      setFilteredOrders(orders);
+    }
+  }, [filters.searchTerm, orders]);
+
+  const applySearchFilter = () => {
+    const searchLower = filters.searchTerm.toLowerCase();
+    const result = orders.filter(
+      order => 
+        order.order_id.toString().includes(searchLower) ||
+        (order.user_id && order.user_id.toString().includes(searchLower))
+    );
     setFilteredOrders(result);
   };
 
@@ -104,7 +140,9 @@ function OrdersManagement() {
     } else {
       setFilters({
         ...filters,
-        [name]: value
+        [name]: value,
+        // Reset to page 1 when changing filters
+        page: 1
       });
     }
   };
@@ -117,13 +155,23 @@ function OrdersManagement() {
         startDate: '',
         endDate: ''
       },
-      searchTerm: ''
+      searchTerm: '',
+      page: 1,
+      limit: 10
     });
   };
 
-  const handleViewDetails = (order) => {
-    setSelectedOrder(order);
-    setIsDetailsModalOpen(true);
+  const handleViewDetails = async (orderId) => {
+    try {
+      setIsLoading(true);
+      const orderDetails = await orderService.getOrderById(orderId);
+      setSelectedOrder(orderDetails);
+      setIsDetailsModalOpen(true);
+    } catch (error) {
+      notify(`Error fetching order details: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdateStatus = async (orderId, newStatus) => {
@@ -138,6 +186,18 @@ function OrdersManagement() {
       );
       
       setOrders(updatedOrders);
+      setFilteredOrders(updatedOrders.filter(order => 
+        !filters.status || order.order_status === filters.status
+      ));
+      
+      // If we're viewing this order in the modal, update it there too
+      if (selectedOrder && selectedOrder.order_id === orderId) {
+        setSelectedOrder({ ...selectedOrder, order_status: newStatus });
+      }
+      
+      // Refresh order stats
+      fetchOrderStats();
+      
       notify(`Order #${orderId} status updated to ${newStatus}`, 'success');
     } catch (error) {
       notify(`Error updating order status: ${error.message}`, 'error');
@@ -145,6 +205,8 @@ function OrdersManagement() {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    
     const options = { 
       year: 'numeric', 
       month: 'short', 
@@ -165,12 +227,14 @@ function OrdersManagement() {
     }
   };
 
-  // Calculate total number of orders for each status
-  const totalOrdersByStatus = {
-    pending: orders.filter(order => order.order_status === 'Pending').length,
-    inProgress: orders.filter(order => order.order_status === 'In Progress').length,
-    completed: orders.filter(order => order.order_status === 'Completed').length,
-    cancelled: orders.filter(order => order.order_status === 'Cancelled').length
+  // Handle pagination
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > pagination.pages) return;
+    
+    setFilters({
+      ...filters,
+      page: newPage
+    });
   };
 
   return (
@@ -182,19 +246,19 @@ function OrdersManagement() {
         <div className="orders-overview">
           <div className="order-stat-card pending">
             <h3>Pending</h3>
-            <p className="stat-number">{totalOrdersByStatus.pending}</p>
+            <p className="stat-number">{orderStats.pending}</p>
           </div>
           <div className="order-stat-card in-progress">
             <h3>In Progress</h3>
-            <p className="stat-number">{totalOrdersByStatus.inProgress}</p>
+            <p className="stat-number">{orderStats.in_progress}</p>
           </div>
           <div className="order-stat-card completed">
             <h3>Completed</h3>
-            <p className="stat-number">{totalOrdersByStatus.completed}</p>
+            <p className="stat-number">{orderStats.completed}</p>
           </div>
           <div className="order-stat-card cancelled">
             <h3>Cancelled</h3>
-            <p className="stat-number">{totalOrdersByStatus.cancelled}</p>
+            <p className="stat-number">{orderStats.cancelled}</p>
           </div>
         </div>
         
@@ -205,7 +269,7 @@ function OrdersManagement() {
               name="searchTerm"
               value={filters.searchTerm}
               onChange={handleFilterChange}
-              placeholder="Search orders by ID or customer name"
+              placeholder="Search orders by ID or customer"
             />
           </div>
           
@@ -277,10 +341,10 @@ function OrdersManagement() {
                   filteredOrders.map((order) => (
                     <tr key={order.order_id}>
                       <td>#{order.order_id}</td>
-                      <td>{order.user_name || 'Guest Customer'}</td>
+                      <td>{order.user_id ? `User #${order.user_id}` : 'Guest'}</td>
                       <td>{order.order_type}</td>
                       <td>{formatDate(order.created_at)}</td>
-                      <td>LKR {order.total_amount.toFixed(2)}</td>
+                      <td>Rs. {parseFloat(order.total_amount).toFixed(2)}</td>
                       <td>
                         <span className={`status-badge ${getStatusClass(order.order_status)}`}>
                           {order.order_status}
@@ -290,7 +354,7 @@ function OrdersManagement() {
                         <div className="order-actions">
                           <button 
                             className="view-btn"
-                            onClick={() => handleViewDetails(order)}
+                            onClick={() => handleViewDetails(order.order_id)}
                           >
                             View Details
                           </button>
@@ -318,6 +382,25 @@ function OrdersManagement() {
                 )}
               </tbody>
             </table>
+            
+            {/* Add pagination controls */}
+            {pagination.pages > 1 && (
+              <div className="pagination-controls">
+                <button 
+                  onClick={() => handlePageChange(filters.page - 1)}
+                  disabled={filters.page === 1}
+                >
+                  Previous
+                </button>
+                <span>Page {filters.page} of {pagination.pages}</span>
+                <button 
+                  onClick={() => handlePageChange(filters.page + 1)}
+                  disabled={filters.page === pagination.pages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
         
@@ -347,10 +430,9 @@ function OrdersManagement() {
                   
                   <div className="order-info-group">
                     <h3>Customer Information</h3>
-                    <p><strong>Name:</strong> {selectedOrder.user_name || 'Guest Customer'}</p>
+                    <p><strong>User ID:</strong> {selectedOrder.user_id || 'Guest'}</p>
                     {selectedOrder.email && <p><strong>Email:</strong> {selectedOrder.email}</p>}
                     {selectedOrder.phone_number && <p><strong>Phone:</strong> {selectedOrder.phone_number}</p>}
-                    {selectedOrder.address && <p><strong>Address:</strong> {selectedOrder.address}</p>}
                   </div>
                 </div>
                 
@@ -359,7 +441,7 @@ function OrdersManagement() {
                   <table className="order-items-table">
                     <thead>
                       <tr>
-                        <th>Item</th>
+                        <th>Item ID</th>
                         <th>Price</th>
                         <th>Quantity</th>
                         <th>Total</th>
@@ -368,50 +450,26 @@ function OrdersManagement() {
                     <tbody>
                       {selectedOrder.items && selectedOrder.items.map((item, index) => (
                         <tr key={index}>
-                          <td>{item.menu_name}</td>
-                          <td>LKR {parseFloat(item.price).toFixed(2)}</td>
+                          <td>#{item.menu_id}</td>
+                          <td>Rs. {parseFloat(item.price).toFixed(2)}</td>
                           <td>{item.quantity}</td>
-                          <td>LKR {(parseFloat(item.price) * item.quantity).toFixed(2)}</td>
+                          <td>Rs. {(parseFloat(item.price) * item.quantity).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr>
-                        <td colSpan="3" className="summary-label">Subtotal</td>
-                        <td>LKR {selectedOrder.total_amount.toFixed(2)}</td>
-                      </tr>
-                      {selectedOrder.discount_amount > 0 && (
-                        <tr>
-                          <td colSpan="3" className="summary-label">Discount</td>
-                          <td>-LKR {selectedOrder.discount_amount.toFixed(2)}</td>
-                        </tr>
-                      )}
                       <tr className="order-total">
                         <td colSpan="3" className="summary-label">Total</td>
-                        <td>LKR {(selectedOrder.total_amount - (selectedOrder.discount_amount || 0)).toFixed(2)}</td>
+                        <td>Rs. {parseFloat(selectedOrder.total_amount).toFixed(2)}</td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
                 
-                <div className="payment-section">
-                  <h3>Payment Information</h3>
-                  {selectedOrder.payment ? (
-                    <div className="payment-info">
-                      <p><strong>Method:</strong> {selectedOrder.payment.payment_type}</p>
-                      <p><strong>Status:</strong> {selectedOrder.payment.payment_status}</p>
-                      <p><strong>Paid On:</strong> {formatDate(selectedOrder.payment.paid_at)}</p>
-                      <p><strong>Amount:</strong> LKR {selectedOrder.payment.amount.toFixed(2)}</p>
-                    </div>
-                  ) : (
-                    <p>No payment information available</p>
-                  )}
-                </div>
-                
                 {selectedOrder.order_type === 'Delivery' && selectedOrder.delivery_person_id && (
                   <div className="delivery-section">
                     <h3>Delivery Information</h3>
-                    <p><strong>Delivery Person:</strong> {selectedOrder.delivery_person_name || `ID: ${selectedOrder.delivery_person_id}`}</p>
+                    <p><strong>Delivery Person ID:</strong> {selectedOrder.delivery_person_id}</p>
                   </div>
                 )}
                 
