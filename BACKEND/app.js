@@ -6,6 +6,7 @@ require('dotenv').config();
 const userRoutes = require('./routes/userRoutes');
 const menuRoutes = require('./routes/menuRoutes');
 const reservationRoutes = require('./routes/reservationRoutes'); // Add reservation routes
+const orderRoutes = require('./routes/orderRoutes'); // Add order routes
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use('/images', express.static(path.join(__dirname, '../FRONTEND/public')));
 app.use('/api/users', userRoutes);
 app.use('/api/menu', menuRoutes); // This is important - ensure it's '/api/menu'
 app.use('/api/reservations', reservationRoutes); // Add reservation routes
+app.use('/api/orders', orderRoutes); // Add order routes
 
 // Default route - add more logging to help with debugging
 app.get('/', (req, res) => {
