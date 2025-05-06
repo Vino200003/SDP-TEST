@@ -376,20 +376,43 @@ function MenuManagement() {
     try {
       let items;
       if (status === 'all') {
+        // Get all items for 'all' filter
         items = await menuService.getAllMenuItems();
       } else {
+        // Try to get filtered items from API
         items = await menuService.getMenuItemsByStatus(status);
+        
+        // If the API doesn't filter correctly, filter client-side
+        if (items.length > 0 && items.some(item => item.status !== status)) {
+          console.log('API did not filter correctly, filtering client-side');
+          items = items.filter(item => item.status === status);
+        }
       }
       
       const sortedItems = [...items].sort((a, b) => a.menu_id - b.menu_id);
       setMenuItems(sortedItems);
     } catch (error) {
       notify(`Error filtering items: ${error.message}`, 'error');
+      
+      // Fallback to client-side filtering if API call fails
+      try {
+        const allItems = await menuService.getAllMenuItems();
+        let filteredItems = allItems;
+        
+        if (status !== 'all') {
+          filteredItems = allItems.filter(item => item.status === status);
+        }
+        
+        const sortedItems = [...filteredItems].sort((a, b) => a.menu_id - b.menu_id);
+        setMenuItems(sortedItems);
+      } catch (fallbackError) {
+        notify('Failed to filter items. Please try refreshing the page.', 'error');
+      }
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   // Add a function to toggle item status
   const handleToggleStatus = async (item) => {
     try {
@@ -403,10 +426,8 @@ function MenuManagement() {
           ? { ...menuItem, status: newStatus }
           : menuItem
       );
-      
       setMenuItems(updatedItems);
       notify(`Item "${item.menu_name}" is now ${newStatus === 'available' ? 'Available' : 'Out of Stock'}`, 'success');
-      
     } catch (error) {
       notify(`Error updating status: ${error.message}`, 'error');
     }
@@ -446,7 +467,7 @@ function MenuManagement() {
             </button>
           </div>
         )}
-        
+
         <div className="view-buttons">
           <button 
             className={`view-button ${currentView === 'menu' ? 'active' : ''}`}
@@ -467,7 +488,7 @@ function MenuManagement() {
             Subcategories
           </button>
         </div>
-        
+
         {isLoading ? (
           <div className="loading-spinner">Loading...</div>
         ) : (
@@ -507,7 +528,7 @@ function MenuManagement() {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="menu-items-list">
                   <table className="menu-table">
                     <thead>
@@ -524,7 +545,9 @@ function MenuManagement() {
                     </thead>
                     <tbody>
                       {/* Menu items are now sorted by ID in ascending order */}
-                      {menuItems.map(item => (
+                      {menuItems
+                        .filter(item => statusFilter === 'all' || item.status === statusFilter)
+                        .map(item => (
                         <tr key={item.menu_id}>
                           <td>{item.menu_id}</td>
                           <td>
@@ -557,7 +580,7 @@ function MenuManagement() {
                             <div className="action-buttons">
                               <button 
                                 className="edit-button"
-                                onClick={() => prepareItemForEdit(item)}
+                                onClick={() => prepareItemForEdit(item)} 
                               >
                                 Edit
                               </button>
@@ -583,13 +606,13 @@ function MenuManagement() {
                 <div className="section-header">
                   <h2>Categories</h2>
                   <button 
-                    className="add-button" 
+                    className="add-button"
                     onClick={() => setIsAddCategoryModalOpen(true)}
                   >
                     Add Category
                   </button>
                 </div>
-                
+
                 <div className="categories-list">
                   <table className="category-table">
                     <thead>
@@ -647,7 +670,7 @@ function MenuManagement() {
                     Add Subcategory
                   </button>
                 </div>
-                
+
                 <div className="subcategories-list">
                   <table className="subcategory-table">
                     <thead>
@@ -696,7 +719,7 @@ function MenuManagement() {
             )}
           </>
         )}
-        
+
         {/* Add Item Modal */}
         {isAddModalOpen && (
           <div className="modal-overlay">
@@ -711,7 +734,6 @@ function MenuManagement() {
                   placeholder="Enter item name"
                 />
               </div>
-              
               <div className="form-group">
                 <label>Price</label>
                 <input 
@@ -722,7 +744,6 @@ function MenuManagement() {
                   placeholder="Enter price"
                 />
               </div>
-              
               <div className="form-group">
                 <label>Category</label>
                 <select
@@ -737,7 +758,6 @@ function MenuManagement() {
                   ))}
                 </select>
               </div>
-              
               <div className="form-group">
                 <label>Subcategory</label>
                 <select
@@ -755,7 +775,6 @@ function MenuManagement() {
                     ))}
                 </select>
               </div>
-              
               <div className="form-group">
                 <label>Status</label>
                 <select
@@ -766,7 +785,6 @@ function MenuManagement() {
                   <option value="out_of_stock">Out of Stock</option>
                 </select>
               </div>
-              
               <div className="form-group">
                 <label>Image URL</label>
                 <input 
@@ -777,7 +795,6 @@ function MenuManagement() {
                 />
                 <small className="form-hint">Use a complete URL including http:// or https://</small>
               </div>
-              
               <div className="modal-buttons">
                 <button 
                   className="cancel-button"
@@ -809,7 +826,6 @@ function MenuManagement() {
                   onChange={(e) => setCurrentItem({...currentItem, menu_name: e.target.value})}
                 />
               </div>
-              
               <div className="form-group">
                 <label>Price</label>
                 <input 
@@ -819,7 +835,6 @@ function MenuManagement() {
                   onChange={(e) => setCurrentItem({...currentItem, price: e.target.value})}
                 />
               </div>
-              
               <div className="form-group">
                 <label>Category</label>
                 <select
@@ -838,7 +853,6 @@ function MenuManagement() {
                   ))}
                 </select>
               </div>
-              
               <div className="form-group">
                 <label>Subcategory</label>
                 <select
@@ -859,7 +873,6 @@ function MenuManagement() {
                     ))}
                 </select>
               </div>
-              
               <div className="form-group">
                 <label>Status</label>
                 <select
@@ -870,7 +883,6 @@ function MenuManagement() {
                   <option value="out_of_stock">Out of Stock</option>
                 </select>
               </div>
-              
               <div className="form-group">
                 <label>Image URL</label>
                 <input 
@@ -881,7 +893,6 @@ function MenuManagement() {
                 />
                 <small className="form-hint">Use a complete URL including http:// or https://</small>
               </div>
-              
               <div className="modal-buttons">
                 <button 
                   className="cancel-button"
@@ -914,7 +925,6 @@ function MenuManagement() {
                   placeholder="Enter category name"
                 />
               </div>
-              
               <div className="modal-buttons">
                 <button 
                   className="cancel-button"
@@ -947,7 +957,6 @@ function MenuManagement() {
                   placeholder="Enter category name"
                 />
               </div>
-              
               <div className="modal-buttons">
                 <button 
                   className="cancel-button"
@@ -980,7 +989,6 @@ function MenuManagement() {
                   placeholder="Enter subcategory name"
                 />
               </div>
-              
               <div className="form-group">
                 <label>Parent Category</label>
                 <select
@@ -995,7 +1003,6 @@ function MenuManagement() {
                   ))}
                 </select>
               </div>
-              
               <div className="modal-buttons">
                 <button 
                   className="cancel-button"
@@ -1028,7 +1035,6 @@ function MenuManagement() {
                   placeholder="Enter subcategory name"
                 />
               </div>
-              
               <div className="form-group">
                 <label>Parent Category</label>
                 <select
@@ -1042,7 +1048,6 @@ function MenuManagement() {
                   ))}
                 </select>
               </div>
-              
               <div className="modal-buttons">
                 <button 
                   className="cancel-button"
