@@ -254,17 +254,42 @@ exports.createMenuItem = (req, res) => {
 // Update a menu item (admin only)
 exports.updateMenuItem = (req, res) => {
   const menuId = req.params.id;
-  const { menu_name, price, status, category_code, subcategory_code, image_url, image_path } = req.body;
+  let { menu_name, price, status, category_code, subcategory_code, image_url, image_path } = req.body;
   
+  // Validate required fields
+  if (!menu_name || !price) {
+    return res.status(400).json({ 
+      message: 'Menu name and price are required' 
+    });
+  }
+  
+  // Convert empty strings to null for foreign keys
+  category_code = category_code || null;
+  subcategory_code = subcategory_code || null;
+  image_url = image_url || null;
+  image_path = image_path || null;
+  
+  // Ensure status is valid
+  if (status && !['available', 'out_of_stock'].includes(status)) {
+    return res.status(400).json({
+      message: 'Invalid status. Status must be either "available" or "out_of_stock"'
+    });
+  }
+  
+  // Create the update object with only defined values
   const updatedMenuItem = {
     menu_name,
     price,
-    status,
-    category_code,
-    subcategory_code,
-    image_url,
-    image_path
+    status: status || 'available'
   };
+  
+  // Only add these fields if they have values
+  if (category_code !== null) updatedMenuItem.category_code = category_code;
+  if (subcategory_code !== null) updatedMenuItem.subcategory_code = subcategory_code;
+  if (image_url !== null) updatedMenuItem.image_url = image_url;
+  if (image_path !== null) updatedMenuItem.image_path = image_path;
+  
+  console.log('Updating menu item with data:', updatedMenuItem);
   
   db.query('UPDATE menu SET ? WHERE menu_id = ?', [updatedMenuItem, menuId], (err, result) => {
     if (err) {

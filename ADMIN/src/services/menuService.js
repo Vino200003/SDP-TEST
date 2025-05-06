@@ -64,20 +64,32 @@ export const createMenuItem = async (menuItemData) => {
   }
 };
 
-// Update the updateMenuItem function to include image_path
+// Update the updateMenuItem function to include image_path and handle nulls
 export const updateMenuItem = async (id, menuItemData) => {
   try {
-    // Ensure both image fields are included if they exist
-    const dataToSend = {
-      ...menuItemData,
+    // Clean the data to prevent null values
+    const cleanedData = {
+      menu_name: menuItemData.menu_name || '',
+      price: menuItemData.price || 0,
+      status: menuItemData.status || 'available',
+      // Convert empty strings to null for foreign keys to avoid DB errors
+      category_code: menuItemData.category_code || null,
+      subcategory_code: menuItemData.subcategory_code || null,
       image_url: menuItemData.image_url || null,
       image_path: menuItemData.image_path || null
     };
     
-    const response = await apiClient.put(`/menu/${id}`, dataToSend);
+    console.log('Updating menu item with data:', cleanedData);
+    
+    const response = await apiClient.put(`/menu/${id}`, cleanedData);
     return response.data;
   } catch (error) {
     console.error(`Error updating menu item ${id}:`, error);
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Server response:', error.response.data);
+      console.error('Status code:', error.response.status);
+    }
     throw error;
   }
 };
@@ -88,6 +100,37 @@ export const deleteMenuItem = async (id) => {
     return response.data;
   } catch (error) {
     console.error(`Error deleting menu item ${id}:`, error);
+    throw error;
+  }
+};
+
+// Update the updateMenuItemStatus function with better error handling
+export const updateMenuItemStatus = async (id, status) => {
+  try {
+    // Validate status
+    if (!['available', 'out_of_stock'].includes(status)) {
+      throw new Error('Invalid status. Status must be either "available" or "out_of_stock"');
+    }
+    
+    const response = await apiClient.patch(`/menu/${id}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating menu item status for item ${id}:`, error);
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Server response:', error.response.data);
+      console.error('Status code:', error.response.status);
+    }
+    throw error;
+  }
+};
+
+export const getMenuItemsByStatus = async (status) => {
+  try {
+    const response = await apiClient.get(`/menu?status=${status}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching menu items with status ${status}:`, error);
     throw error;
   }
 };

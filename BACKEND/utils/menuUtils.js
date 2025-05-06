@@ -86,6 +86,56 @@ exports.getMenuItemsCountByCategory = (categoryCode) => {
 };
 
 /**
+ * Get menu items by status
+ * @param {string} status - Status to filter by ('available' or 'out_of_stock')
+ * @returns {Promise<Array>} - Array of menu items with the specified status
+ */
+exports.getMenuItemsByStatus = (status) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT m.*, c.category_name, s.subcategory_name 
+      FROM menu m
+      LEFT JOIN categories c ON m.category_code = c.category_code
+      LEFT JOIN subcategories s ON m.subcategory_code = s.subcategory_code
+      WHERE m.status = ?
+      ORDER BY c.category_name, m.menu_name
+    `;
+    
+    db.query(query, [status], (err, results) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      resolve(results);
+    });
+  });
+};
+
+/**
+ * Update menu item status
+ * @param {number} menuId - Menu item ID
+ * @param {string} status - New status ('available' or 'out_of_stock')
+ * @returns {Promise<Object>} - Result of the update operation
+ */
+exports.updateMenuItemStatus = (menuId, status) => {
+  return new Promise((resolve, reject) => {
+    db.query(
+      'UPDATE menu SET status = ? WHERE menu_id = ?',
+      [status, menuId],
+      (err, result) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        resolve(result);
+      }
+    );
+  });
+};
+
+/**
  * Format price to 2 decimal places
  * @param {number|string} price - Price to format
  * @returns {string} - Formatted price with 2 decimal places

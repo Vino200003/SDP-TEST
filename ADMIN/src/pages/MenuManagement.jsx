@@ -14,6 +14,7 @@ function MenuManagement() {
   const [subcategories, setSubcategories] = useState([]);
   const [currentView, setCurrentView] = useState('menu'); // 'menu', 'categories', 'subcategories'
   const [isLoading, setIsLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all'); // Add this state
   
   // State for forms
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -138,11 +139,28 @@ function MenuManagement() {
     if (!currentItem) return;
     
     try {
-      await menuService.updateMenuItem(currentItem.menu_id, currentItem);
+      // First validate required fields
+      if (!currentItem.menu_name || !currentItem.price) {
+        notify('Menu name and price are required', 'error');
+        return;
+      }
+      
+      // Ensure no null values in the data being sent
+      const cleanedItem = {
+        ...currentItem,
+        menu_name: currentItem.menu_name,
+        price: currentItem.price,
+        status: currentItem.status || 'available',
+        category_code: currentItem.category_code || '',
+        subcategory_code: currentItem.subcategory_code || '',
+        image_url: currentItem.image_url || ''
+      };
+      
+      await menuService.updateMenuItem(cleanedItem.menu_id, cleanedItem);
       notify('Menu item updated successfully!', 'success');
       
       const updatedItems = menuItems.map(item => 
-        item.menu_id === currentItem.menu_id ? currentItem : item
+        item.menu_id === cleanedItem.menu_id ? cleanedItem : item
       ).sort((a, b) => a.menu_id - b.menu_id);
       
       setMenuItems(updatedItems);
@@ -150,7 +168,9 @@ function MenuManagement() {
       setCurrentItem(null);
       fetchData();
     } catch (error) {
-      notify(`Error updating menu item: ${error.response?.data?.message || error.message}`, 'error');
+      console.error('[error]', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Error updating menu item';
+      notify(`Error updating menu item: ${errorMessage}`, 'error');
     }
   };
   
@@ -348,6 +368,66 @@ function MenuManagement() {
     return null;
   };
 
+  // Add this new function to handle status filtering
+  const handleStatusFilterChange = async (status) => {
+    setIsLoading(true);
+    setStatusFilter(status);
+    
+    try {
+      let items;
+      if (status === 'all') {
+        items = await menuService.getAllMenuItems();
+      } else {
+        items = await menuService.getMenuItemsByStatus(status);
+      }
+      
+      const sortedItems = [...items].sort((a, b) => a.menu_id - b.menu_id);
+      setMenuItems(sortedItems);
+    } catch (error) {
+      notify(`Error filtering items: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Add a function to toggle item status
+  const handleToggleStatus = async (item) => {
+    try {
+      const newStatus = item.status === 'available' ? 'out_of_stock' : 'available';
+      
+      await menuService.updateMenuItemStatus(item.menu_id, newStatus);
+      
+      // Update the local state
+      const updatedItems = menuItems.map(menuItem => 
+        menuItem.menu_id === item.menu_id 
+          ? { ...menuItem, status: newStatus }
+          : menuItem
+      );
+      
+      setMenuItems(updatedItems);
+      notify(`Item "${item.menu_name}" is now ${newStatus === 'available' ? 'Available' : 'Out of Stock'}`, 'success');
+      
+    } catch (error) {
+      notify(`Error updating status: ${error.message}`, 'error');
+    }
+  };
+
+  // Update the code that sets the current item for editing to ensure values are not null
+  const prepareItemForEdit = (item) => {
+    // Create a copy with default values for any null properties
+    const preparedItem = {
+      ...item,
+      menu_name: item.menu_name || '',
+      price: item.price || '',
+      status: item.status || 'available',
+      category_code: item.category_code || '',
+      subcategory_code: item.subcategory_code || '',
+      image_url: item.image_url || ''
+    };
+    setCurrentItem(preparedItem);
+    setIsEditModalOpen(true);
+  };
+
   return (
     <div className="menu-management-container">
       <Sidebar />
@@ -397,12 +477,35 @@ function MenuManagement() {
               <div className="menu-items-section">
                 <div className="section-header">
                   <h2>Menu Items</h2>
-                  <button 
-                    className="add-button"
-                    onClick={() => setIsAddModalOpen(true)}
-                  >
-                    Add New Item
-                  </button>
+                  <div className="action-controls">
+                    {/* Add status filter buttons */}
+                    <div className="status-filter-buttons">
+                      <button 
+                        className={`filter-button ${statusFilter === 'all' ? 'active' : ''}`}
+                        onClick={() => handleStatusFilterChange('all')}
+                      >
+                        All Items
+                      </button>
+                      <button 
+                        className={`filter-button ${statusFilter === 'available' ? 'active' : ''}`}
+                        onClick={() => handleStatusFilterChange('available')}
+                      >
+                        Available
+                      </button>
+                      <button 
+                        className={`filter-button ${statusFilter === 'out_of_stock' ? 'active' : ''}`}
+                        onClick={() => handleStatusFilterChange('out_of_stock')}
+                      >
+                        Out of Stock
+                      </button>
+                    </div>
+                    <button 
+                      className="add-button"
+                      onClick={() => setIsAddModalOpen(true)}
+                    >
+                      Add New Item
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="menu-items-list">
@@ -442,7 +545,11 @@ function MenuManagement() {
                           <td>{item.category_name || getCategoryName(item.category_code)}</td>
                           <td>{item.subcategory_name || getSubcategoryName(item.subcategory_code)}</td>
                           <td>
-                            <span className={`status-badge ${item.status}`}>
+                            <span 
+                              className={`status-badge ${item.status} clickable`}
+                              onClick={() => handleToggleStatus(item)}
+                              title="Click to toggle status"
+                            >
                               {item.status === 'available' ? 'Available' : 'Out of Stock'}
                             </span>
                           </td>
@@ -450,10 +557,7 @@ function MenuManagement() {
                             <div className="action-buttons">
                               <button 
                                 className="edit-button"
-                                onClick={() => {
-                                  setCurrentItem(item);
-                                  setIsEditModalOpen(true);
-                                }}
+                                onClick={() => prepareItemForEdit(item)}
                               >
                                 Edit
                               </button>
@@ -701,7 +805,7 @@ function MenuManagement() {
                 <label>Item Name</label>
                 <input 
                   type="text" 
-                  value={currentItem.menu_name}
+                  value={currentItem.menu_name || ''}
                   onChange={(e) => setCurrentItem({...currentItem, menu_name: e.target.value})}
                 />
               </div>
@@ -711,7 +815,7 @@ function MenuManagement() {
                 <input 
                   type="number" 
                   step="0.01"
-                  value={currentItem.price}
+                  value={currentItem.price || ''}
                   onChange={(e) => setCurrentItem({...currentItem, price: e.target.value})}
                 />
               </div>
@@ -719,9 +823,14 @@ function MenuManagement() {
               <div className="form-group">
                 <label>Category</label>
                 <select
-                  value={currentItem.category_code}
-                  onChange={(e) => setCurrentItem({...currentItem, category_code: parseInt(e.target.value)})}
+                  value={currentItem.category_code || ''}
+                  onChange={(e) => setCurrentItem({
+                    ...currentItem, 
+                    category_code: e.target.value ? parseInt(e.target.value) : '',
+                    subcategory_code: '' // Reset subcategory when category changes
+                  })}
                 >
+                  <option value="">Select Category</option>
                   {categories.map(category => (
                     <option key={category.category_code} value={category.category_code}>
                       {category.category_name}
@@ -733,9 +842,14 @@ function MenuManagement() {
               <div className="form-group">
                 <label>Subcategory</label>
                 <select
-                  value={currentItem.subcategory_code}
-                  onChange={(e) => setCurrentItem({...currentItem, subcategory_code: parseInt(e.target.value)})}
+                  value={currentItem.subcategory_code || ''}
+                  onChange={(e) => setCurrentItem({
+                    ...currentItem, 
+                    subcategory_code: e.target.value ? parseInt(e.target.value) : ''
+                  })}
+                  disabled={!currentItem.category_code}
                 >
+                  <option value="">Select Subcategory</option>
                   {subcategories
                     .filter(sub => sub.category_code === currentItem.category_code)
                     .map(subcategory => (
@@ -749,7 +863,7 @@ function MenuManagement() {
               <div className="form-group">
                 <label>Status</label>
                 <select
-                  value={currentItem.status}
+                  value={currentItem.status || 'available'}
                   onChange={(e) => setCurrentItem({...currentItem, status: e.target.value})}
                 >
                   <option value="available">Available</option>
@@ -761,7 +875,7 @@ function MenuManagement() {
                 <label>Image URL</label>
                 <input 
                   type="text" 
-                  value={currentItem.image_url}
+                  value={currentItem.image_url || ''}
                   onChange={(e) => setCurrentItem({...currentItem, image_url: e.target.value})}
                   placeholder="Enter full URL (https://...)"
                 />
