@@ -82,7 +82,7 @@ exports.getOrderById = (req, res) => {
   
   // Get order items
   const itemsQuery = `
-    SELECT oi.*, oi.order_item_id
+    SELECT oi.*, m.menu_name
     FROM order_items oi
     JOIN menu m ON oi.menu_id = m.menu_id
     WHERE oi.order_id = ?

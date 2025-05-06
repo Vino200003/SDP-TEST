@@ -3,6 +3,8 @@ import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import '../styles/MenuManagement.css';
 import * as menuService from '../services/menuService';
+// Import the API_URL from menuService
+import { API_URL } from '../services/menuService';
 // import { toast } from 'react-toastify'; // Uncomment after installing react-toastify
 
 function MenuManagement() {
@@ -25,7 +27,8 @@ function MenuManagement() {
     status: 'available',
     category_code: '',
     subcategory_code: '',
-    image_url: ''
+    image_url: '',
+    image_path: ''
   });
 
   // Additional state for category management
@@ -58,22 +61,47 @@ function MenuManagement() {
     setIsLoading(true);
     try {
       // Always fetch categories as they're needed across views
-      const categoriesData = await menuService.getAllCategories();
-      setCategories(categoriesData);
+      try {
+        const categoriesData = await menuService.getAllCategories();
+        // Sort categories by ID in ascending order
+        const sortedCategories = [...categoriesData].sort((a, b) => a.category_code - b.category_code);
+        setCategories(sortedCategories);
+      } catch (categoryError) {
+        console.error('Error fetching categories:', categoryError);
+        notify('Failed to load categories. Please check server connection.', 'error');
+        setCategories([]); // Set empty array to prevent null reference errors
+      }
 
       // Fetch data based on current view
       if (currentView === 'menu' || currentView === 'subcategories') {
-        const menuItemsData = await menuService.getAllMenuItems();
-        setMenuItems(menuItemsData);
+        try {
+          const menuItemsData = await menuService.getAllMenuItems();
+          // Sort menu items by ID in ascending order
+          const sortedMenuItems = [...menuItemsData].sort((a, b) => a.menu_id - b.menu_id);
+          setMenuItems(sortedMenuItems);
+        } catch (menuError) {
+          console.error('Error fetching menu items:', menuError);
+          notify('Failed to load menu items. Please check server connection.', 'error');
+          setMenuItems([]); // Set empty array to prevent null reference errors
+        }
       }
 
       if (currentView === 'subcategories') {
-        const subcategoriesData = await menuService.getAllSubcategories();
-        setSubcategories(subcategoriesData);
+        try {
+          const subcategoriesData = await menuService.getAllSubcategories();
+          // Sort subcategories by ID in ascending order
+          const sortedSubcategories = [...subcategoriesData].sort((a, b) => a.subcategory_code - b.subcategory_code);
+          setSubcategories(sortedSubcategories);
+        } catch (subcategoryError) {
+          console.error('Error fetching subcategories:', subcategoryError);
+          notify('Failed to load subcategories. Please check server connection.', 'error');
+          setSubcategories([]); // Set empty array to prevent null reference errors
+        }
       }
       
     } catch (error) {
-      notify(`Error fetching data: ${error.response?.data?.message || error.message}`, 'error');
+      console.error('Error fetching data:', error);
+      notify(`Error fetching data: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +112,12 @@ function MenuManagement() {
     try {
       const result = await menuService.createMenuItem(newItem);
       notify('Menu item added successfully!', 'success');
-      setMenuItems([...menuItems, { ...newItem, menu_id: result.menu_id }]);
+      
+      // Add new item and sort the array to maintain ID order
+      const updatedItems = [...menuItems, { ...newItem, menu_id: result.menu_id }]
+        .sort((a, b) => a.menu_id - b.menu_id);
+      
+      setMenuItems(updatedItems);
       setIsAddModalOpen(false);
       setNewItem({
         menu_name: '',
@@ -110,7 +143,7 @@ function MenuManagement() {
       
       const updatedItems = menuItems.map(item => 
         item.menu_id === currentItem.menu_id ? currentItem : item
-      );
+      ).sort((a, b) => a.menu_id - b.menu_id);
       
       setMenuItems(updatedItems);
       setIsEditModalOpen(false);
@@ -142,7 +175,13 @@ function MenuManagement() {
       const result = await menuService.createCategory(newCategory);
       notify('Category added successfully!', 'success');
       
-      setCategories([...categories, { ...newCategory, category_code: result.category_code }]);
+      // Add new category and sort by ID
+      const updatedCategories = [...categories, { 
+        ...newCategory, 
+        category_code: result.category_code 
+      }].sort((a, b) => a.category_code - b.category_code);
+      
+      setCategories(updatedCategories);
       setIsAddCategoryModalOpen(false);
       setNewCategory({ category_name: '' });
     } catch (error) {
@@ -158,9 +197,10 @@ function MenuManagement() {
       await menuService.updateCategory(currentCategory.category_code, currentCategory);
       notify('Category updated successfully!', 'success');
       
+      // Update the category and sort by ID
       const updatedCategories = categories.map(category => 
         category.category_code === currentCategory.category_code ? currentCategory : category
-      );
+      ).sort((a, b) => a.category_code - b.category_code);
       
       setCategories(updatedCategories);
       setIsEditCategoryModalOpen(false);
@@ -205,10 +245,13 @@ function MenuManagement() {
       const result = await menuService.createSubcategory(newSubcategory);
       notify('Subcategory added successfully!', 'success');
       
-      setSubcategories([...subcategories, { 
+      // Add new subcategory and sort by ID
+      const updatedSubcategories = [...subcategories, { 
         ...newSubcategory, 
         subcategory_code: result.subcategory_code 
-      }]);
+      }].sort((a, b) => a.subcategory_code - b.subcategory_code);
+      
+      setSubcategories(updatedSubcategories);
       setIsAddSubcategoryModalOpen(false);
       setNewSubcategory({ subcategory_name: '', category_code: '' });
     } catch (error) {
@@ -227,11 +270,12 @@ function MenuManagement() {
       );
       notify('Subcategory updated successfully!', 'success');
       
+      // Update the subcategory and sort by ID
       const updatedSubcategories = subcategories.map(subcategory => 
         subcategory.subcategory_code === currentSubcategory.subcategory_code 
           ? currentSubcategory 
           : subcategory
-      );
+      ).sort((a, b) => a.subcategory_code - b.subcategory_code);
       
       setSubcategories(updatedSubcategories);
       setIsEditSubcategoryModalOpen(false);
@@ -290,11 +334,38 @@ function MenuManagement() {
     }
   };
 
+  // Add this function to handle image loading errors
+  const handleImageError = (event) => {
+    event.target.src = '/src/assets/default-food.png'; // Fallback to a default image
+    event.target.classList.add('fallback-image');
+  };
+
+  // Update this function to only check image_url
+  const getImageSource = (item) => {
+    if (item.image_url && (item.image_url.startsWith('http') || item.image_url.startsWith('/'))) {
+      return item.image_url;
+    }
+    return null;
+  };
+
   return (
     <div className="menu-management-container">
       <Sidebar />
       <main className="menu-management-content">
         <Header title="Menu Management" />
+        
+        {/* Add a server connection status indicator */}
+        {(menuItems.length === 0 && !isLoading && currentView === 'menu') && (
+          <div className="server-error-banner">
+            <p>Unable to connect to the server. Please check that your backend server is running at: {API_URL}</p>
+            <button 
+              className="retry-button"
+              onClick={fetchData}
+            >
+              Retry Connection
+            </button>
+          </div>
+        )}
         
         <div className="view-buttons">
           <button 
@@ -349,13 +420,18 @@ function MenuManagement() {
                       </tr>
                     </thead>
                     <tbody>
+                      {/* Menu items are now sorted by ID in ascending order */}
                       {menuItems.map(item => (
                         <tr key={item.menu_id}>
                           <td>{item.menu_id}</td>
                           <td>
                             <div className="menu-item-image">
-                              {item.image_url ? (
-                                <img src={item.image_url} alt={item.menu_name} />
+                              {getImageSource(item) ? (
+                                <img 
+                                  src={getImageSource(item)} 
+                                  alt={item.menu_name} 
+                                  onError={handleImageError}
+                                />
                               ) : (
                                 <div className="no-image">No Image</div>
                               )}
@@ -593,8 +669,9 @@ function MenuManagement() {
                   type="text" 
                   value={newItem.image_url}
                   onChange={(e) => setNewItem({...newItem, image_url: e.target.value})}
-                  placeholder="Enter image URL"
+                  placeholder="Enter full URL (https://...)"
                 />
+                <small className="form-hint">Use a complete URL including http:// or https://</small>
               </div>
               
               <div className="modal-buttons">
@@ -686,7 +763,9 @@ function MenuManagement() {
                   type="text" 
                   value={currentItem.image_url}
                   onChange={(e) => setCurrentItem({...currentItem, image_url: e.target.value})}
+                  placeholder="Enter full URL (https://...)"
                 />
+                <small className="form-hint">Use a complete URL including http:// or https://</small>
               </div>
               
               <div className="modal-buttons">

@@ -2,24 +2,49 @@ const db = require('../config/db');
 
 // Get all menu items
 exports.getAllMenuItems = (req, res) => {
-  const query = `
-    SELECT m.*, c.category_name, s.subcategory_name 
-    FROM menu m
-    LEFT JOIN categories c ON m.category_code = c.category_code
-    LEFT JOIN subcategories s ON m.subcategory_code = s.subcategory_code
-    ORDER BY c.category_name, s.subcategory_name, m.menu_name
-  `;
-  
-  db.query(query, (err, results) => {
+  // First check if subcategories table exists
+  db.query("SHOW TABLES LIKE 'subcategories'", (err, tableResults) => {
     if (err) {
-      console.error('Error fetching menu items:', err);
+      console.error('Error checking for subcategories table:', err);
       return res.status(500).json({ 
-        message: 'Error fetching menu items', 
+        message: 'Error checking database schema', 
         error: err.message 
       });
     }
     
-    res.json(results);
+    let query;
+    
+    // If subcategories table exists, use the join query
+    if (tableResults.length > 0) {
+      query = `
+        SELECT m.*, c.category_name, s.subcategory_name 
+        FROM menu m
+        LEFT JOIN categories c ON m.category_code = c.category_code
+        LEFT JOIN subcategories s ON m.subcategory_code = s.subcategory_code
+        ORDER BY c.category_name, m.menu_name
+      `;
+    } else {
+      // If subcategories table doesn't exist, skip that join
+      console.log('Subcategories table not found, skipping join');
+      query = `
+        SELECT m.*, c.category_name 
+        FROM menu m
+        LEFT JOIN categories c ON m.category_code = c.category_code
+        ORDER BY c.category_name, m.menu_name
+      `;
+    }
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error fetching menu items:', err);
+        return res.status(500).json({ 
+          message: 'Error fetching menu items', 
+          error: err.message 
+        });
+      }
+      
+      res.json(results);
+    });
   });
 };
 
@@ -198,7 +223,7 @@ exports.searchMenuItems = (req, res) => {
 
 // Create a new menu item (admin only)
 exports.createMenuItem = (req, res) => {
-  const { menu_name, price, status, category_code, subcategory_code, image_url } = req.body;
+  const { menu_name, price, status, category_code, subcategory_code, image_url, image_path } = req.body;
   
   const newMenuItem = {
     menu_name,
@@ -206,7 +231,8 @@ exports.createMenuItem = (req, res) => {
     status: status || 'available',
     category_code,
     subcategory_code,
-    image_url
+    image_url,
+    image_path
   };
   
   db.query('INSERT INTO menu SET ?', newMenuItem, (err, result) => {
@@ -228,7 +254,7 @@ exports.createMenuItem = (req, res) => {
 // Update a menu item (admin only)
 exports.updateMenuItem = (req, res) => {
   const menuId = req.params.id;
-  const { menu_name, price, status, category_code, subcategory_code, image_url } = req.body;
+  const { menu_name, price, status, category_code, subcategory_code, image_url, image_path } = req.body;
   
   const updatedMenuItem = {
     menu_name,
@@ -236,7 +262,8 @@ exports.updateMenuItem = (req, res) => {
     status,
     category_code,
     subcategory_code,
-    image_url
+    image_url,
+    image_path
   };
   
   db.query('UPDATE menu SET ? WHERE menu_id = ?', [updatedMenuItem, menuId], (err, result) => {

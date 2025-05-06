@@ -442,6 +442,7 @@ function OrdersManagement() {
                     <thead>
                       <tr>
                         <th>Item ID</th>
+                        <th>Item Name</th>
                         <th>Price</th>
                         <th>Quantity</th>
                         <th>Total</th>
@@ -450,7 +451,8 @@ function OrdersManagement() {
                     <tbody>
                       {selectedOrder.items && selectedOrder.items.map((item, index) => (
                         <tr key={index}>
-                          <td>#{item.menu_id}</td>
+                          <td>{item.menu_id}</td>
+                          <td>{item.menu_name || 'Unknown Item'}</td>
                           <td>Rs. {parseFloat(item.price).toFixed(2)}</td>
                           <td>{item.quantity}</td>
                           <td>Rs. {(parseFloat(item.price) * item.quantity).toFixed(2)}</td>
@@ -459,7 +461,7 @@ function OrdersManagement() {
                     </tbody>
                     <tfoot>
                       <tr className="order-total">
-                        <td colSpan="3" className="summary-label">Total</td>
+                        <td colSpan="4" className="summary-label">Total</td>
                         <td>Rs. {parseFloat(selectedOrder.total_amount).toFixed(2)}</td>
                       </tr>
                     </tfoot>

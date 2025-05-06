@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// Update the API_URL to match your backend
-const API_URL = 'http://localhost:5000/api'; // Ensure this matches your backend URL
+// Update the API_URL to match your backend and export it
+export const API_URL = 'http://localhost:5000/api'; // Ensure this matches your backend URL
 
 // If your backend doesn't include '/api' prefix, change this to:
-// const API_URL = 'http://localhost:5000';
+// export const API_URL = 'http://localhost:5000';
 
 // Create axios instance with base settings
 const apiClient = axios.create({
@@ -17,10 +17,21 @@ const apiClient = axios.create({
 // Menu Items
 export const getAllMenuItems = async () => {
   try {
+    console.log('Fetching menu items from:', `${API_URL}/menu`); // Add this for debugging
     const response = await apiClient.get('/menu');
     return response.data;
   } catch (error) {
     console.error('Error fetching menu items:', error);
+    // More detailed error logging
+    if (error.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Error response data:', error.response.data);
+      console.error('Error response status:', error.response.status);
+    } else if (error.request) {
+      // The request was made but no response was received
+      console.error('No response received:', error.request);
+    }
     throw error;
   }
 };
@@ -35,9 +46,17 @@ export const getMenuItemById = async (id) => {
   }
 };
 
+// Update the createMenuItem function to include image_path
 export const createMenuItem = async (menuItemData) => {
   try {
-    const response = await apiClient.post('/menu', menuItemData);
+    // Ensure both image fields are included if they exist
+    const dataToSend = {
+      ...menuItemData,
+      image_url: menuItemData.image_url || null,
+      image_path: menuItemData.image_path || null
+    };
+    
+    const response = await apiClient.post('/menu', dataToSend);
     return response.data;
   } catch (error) {
     console.error('Error creating menu item:', error);
@@ -45,9 +64,17 @@ export const createMenuItem = async (menuItemData) => {
   }
 };
 
+// Update the updateMenuItem function to include image_path
 export const updateMenuItem = async (id, menuItemData) => {
   try {
-    const response = await apiClient.put(`/menu/${id}`, menuItemData);
+    // Ensure both image fields are included if they exist
+    const dataToSend = {
+      ...menuItemData,
+      image_url: menuItemData.image_url || null,
+      image_path: menuItemData.image_path || null
+    };
+    
+    const response = await apiClient.put(`/menu/${id}`, dataToSend);
     return response.data;
   } catch (error) {
     console.error(`Error updating menu item ${id}:`, error);
