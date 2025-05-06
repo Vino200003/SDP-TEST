@@ -231,6 +231,9 @@ router.delete('/subcategories/:id', (req, res) => {
   );
 });
 
+// Get menu items by category route - add this before the generic routes
+router.get('/category/:categoryCode', menuController.getMenuItemsByCategory);
+
 // Menu Items Routes - put specific routes with parameters after specific paths but before generic /:id
 router.patch('/:id/status', menuController.updateMenuItemStatus);
 

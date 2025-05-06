@@ -46,6 +46,7 @@ const MenuPage = () => {
     try {
       setLoading(true);
       setSelectedCategory(categoryCode);
+      setError(null); // Clear any previous errors
       
       let filteredItems;
       if (categoryCode === 'all') {
