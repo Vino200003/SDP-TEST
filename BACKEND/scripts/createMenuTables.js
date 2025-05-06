@@ -61,7 +61,7 @@ async function createTables() {
     )
   `);
   
-  // Create menu table
+  // Create menu table with image_path column
   await queryPromise(`
     CREATE TABLE IF NOT EXISTS menu (
       menu_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -71,6 +71,7 @@ async function createTables() {
       category_code INT,
       subcategory_code INT,
       image_url VARCHAR(255),
+      image_path VARCHAR(255),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (category_code) REFERENCES categories(category_code)
         ON DELETE SET NULL,

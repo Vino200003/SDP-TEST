@@ -143,3 +143,81 @@ exports.updateMenuItemStatus = (menuId, status) => {
 exports.formatPrice = (price) => {
   return parseFloat(price).toFixed(2);
 };
+
+/**
+ * Validate menu item data for creation or update
+ * @param {Object} itemData - Menu item data to validate
+ * @returns {Object} - Object with isValid flag and error message if any
+ */
+exports.validateMenuItemData = (itemData) => {
+  const { menu_name, price, category_code } = itemData;
+  
+  // Check required fields
+  if (!menu_name || menu_name.trim() === '') {
+    return { isValid: false, message: 'Menu name is required' };
+  }
+  
+  // Validate price
+  if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+    return { isValid: false, message: 'Valid price is required (must be a positive number)' };
+  }
+  
+  // Validate category code
+  if (!category_code) {
+    return { isValid: false, message: 'Category is required' };
+  }
+  
+  return { isValid: true };
+};
+
+/**
+ * Clean menu item data by ensuring correct types and removing invalid values
+ * @param {Object} itemData - Menu item data to clean
+ * @returns {Object} - Cleaned menu item data
+ */
+exports.cleanMenuItemData = (itemData) => {
+  const cleanedData = { ...itemData };
+  
+  // Format price to ensure it's a valid decimal
+  if (cleanedData.price) {
+    cleanedData.price = parseFloat(cleanedData.price).toFixed(2);
+  }
+  
+  // Convert empty strings for foreign keys to null
+  if (cleanedData.category_code === '') cleanedData.category_code = null;
+  if (cleanedData.subcategory_code === '') cleanedData.subcategory_code = null;
+  
+  // Ensure status is valid
+  if (!cleanedData.status || !['available', 'out_of_stock'].includes(cleanedData.status)) {
+    cleanedData.status = 'available';
+  }
+  
+  return cleanedData;
+};
+
+/**
+ * Get menu items by category with error handling
+ * @param {number} categoryCode - Category code
+ * @returns {Promise<Array>} - Array of menu items in the category
+ */
+exports.getMenuItemsByCategory = (categoryCode) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT m.*, c.category_name, s.subcategory_name 
+      FROM menu m
+      LEFT JOIN categories c ON m.category_code = c.category_code
+      LEFT JOIN subcategories s ON m.subcategory_code = s.subcategory_code
+      WHERE m.category_code = ?
+      ORDER BY m.menu_name
+    `;
+    
+    db.query(query, [categoryCode], (err, results) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      resolve(results);
+    });
+  });
+};

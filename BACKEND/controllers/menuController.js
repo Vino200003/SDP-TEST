@@ -223,32 +223,66 @@ exports.searchMenuItems = (req, res) => {
 
 // Create a new menu item (admin only)
 exports.createMenuItem = (req, res) => {
-  const { menu_name, price, status, category_code, subcategory_code, image_url, image_path } = req.body;
-  
-  const newMenuItem = {
-    menu_name,
-    price,
-    status: status || 'available',
-    category_code,
-    subcategory_code,
-    image_url,
-    image_path
-  };
-  
-  db.query('INSERT INTO menu SET ?', newMenuItem, (err, result) => {
-    if (err) {
-      console.error('Error creating menu item:', err);
-      return res.status(500).json({ 
-        message: 'Error creating menu item', 
-        error: err.message 
-      });
+  try {
+    const { menu_name, price, status, category_code, subcategory_code, image_url } = req.body;
+    
+    // Validate required fields
+    if (!menu_name || !price) {
+      return res.status(400).json({ message: 'Menu name and price are required' });
     }
     
-    res.status(201).json({
-      message: 'Menu item created successfully',
-      menu_id: result.insertId
+    // Validate price format
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return res.status(400).json({ message: 'Price must be a positive number' });
+    }
+    
+    // Create new menu item object with only valid fields from the schema
+    const newMenuItem = {
+      menu_name,
+      price: numPrice.toFixed(2), // Format price to 2 decimal places
+      status: status || 'available'
+    };
+    
+    // Only add category_code if it's provided and valid
+    if (category_code) {
+      newMenuItem.category_code = category_code;
+    }
+    
+    // Only add subcategory_code if it's provided
+    if (subcategory_code) {
+      newMenuItem.subcategory_code = subcategory_code;
+    }
+    
+    // Only add image_url if it's provided
+    if (image_url) {
+      newMenuItem.image_url = image_url;
+    }
+    
+    console.log('Creating menu item with data:', newMenuItem);
+    
+    // Insert into database
+    db.query('INSERT INTO menu SET ?', newMenuItem, (err, result) => {
+      if (err) {
+        console.error('Database error creating menu item:', err);
+        return res.status(500).json({ 
+          message: 'Error creating menu item', 
+          error: err.message 
+        });
+      }
+      
+      res.status(201).json({
+        message: 'Menu item created successfully',
+        menu_id: result.insertId
+      });
     });
-  });
+  } catch (error) {
+    console.error('Unexpected error in createMenuItem:', error);
+    res.status(500).json({ 
+      message: 'Unexpected server error', 
+      error: error.message 
+    });
+  }
 };
 
 // Update a menu item (admin only)

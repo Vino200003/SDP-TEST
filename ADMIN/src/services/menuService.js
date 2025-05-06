@@ -46,20 +46,40 @@ export const getMenuItemById = async (id) => {
   }
 };
 
-// Update the createMenuItem function to include image_path
+// Update the createMenuItem function to match the menu table schema exactly
 export const createMenuItem = async (menuItemData) => {
   try {
-    // Ensure both image fields are included if they exist
+    // Create a new object with fields that match the menu table schema
     const dataToSend = {
-      ...menuItemData,
-      image_url: menuItemData.image_url || null,
-      image_path: menuItemData.image_path || null
+      menu_name: menuItemData.menu_name?.trim() || '',
+      price: parseFloat(menuItemData.price) || 0,
+      status: ['available', 'out_of_stock'].includes(menuItemData.status) ? menuItemData.status : 'available',
+      category_code: menuItemData.category_code ? parseInt(menuItemData.category_code) : null,
+      subcategory_code: menuItemData.subcategory_code ? parseInt(menuItemData.subcategory_code) : null,
+      image_url: menuItemData.image_url || null
     };
+    
+    // Remove any properties with null values to prevent SQL errors
+    Object.keys(dataToSend).forEach(key => {
+      if (dataToSend[key] === null || dataToSend[key] === '') {
+        delete dataToSend[key];
+      }
+    });
+    
+    console.log('Sending data to create menu item (matches schema):', dataToSend);
     
     const response = await apiClient.post('/menu', dataToSend);
     return response.data;
   } catch (error) {
     console.error('Error creating menu item:', error);
+    
+    // Enhanced error reporting
+    if (error.response) {
+      console.error('Server responded with error:', error.response.status, error.response.data);
+    } else if (error.request) {
+      console.error('No response received from server:', error.request);
+    }
+    
     throw error;
   }
 };
@@ -100,6 +120,11 @@ export const deleteMenuItem = async (id) => {
     return response.data;
   } catch (error) {
     console.error(`Error deleting menu item ${id}:`, error);
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Server response:', error.response.data);
+      console.error('Status code:', error.response.status);
+    }
     throw error;
   }
 };

@@ -111,7 +111,19 @@ function MenuManagement() {
   // Handle adding a new menu item
   const handleAddItem = async () => {
     try {
-      const result = await menuService.createMenuItem(newItem);
+      // Basic client-side validation
+      if (!newItem.menu_name || !newItem.price || !newItem.category_code) {
+        notify('Menu name, price, and category are required fields', 'error');
+        return;
+      }
+      
+      // Create a clean copy without image_path if it's empty
+      const itemToSend = { ...newItem };
+      if (!itemToSend.image_path) {
+        delete itemToSend.image_path;
+      }
+
+      const result = await menuService.createMenuItem(itemToSend);
       notify('Menu item added successfully!', 'success');
       
       // Add new item and sort the array to maintain ID order
@@ -130,7 +142,15 @@ function MenuManagement() {
       });
       fetchData();
     } catch (error) {
-      notify(`Error adding menu item: ${error.response?.data?.message || error.message}`, 'error');
+      // Handle server response errors more gracefully
+      if (error.response) {
+        const errorMessage = error.response.data?.message || 'Error adding menu item';
+        notify(errorMessage, 'error');
+        console.error('[error] Error adding menu item:', errorMessage);
+      } else {
+        notify(`Network error: ${error.message}`, 'error');
+        console.error('[error] Network error:', error);
+      }
     }
   };
   
