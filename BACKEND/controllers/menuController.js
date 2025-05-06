@@ -224,7 +224,7 @@ exports.searchMenuItems = (req, res) => {
 // Create a new menu item (admin only)
 exports.createMenuItem = (req, res) => {
   try {
-    const { menu_name, price, status, category_code, subcategory_code, image_url } = req.body;
+    const { menu_name, price, status, category_code, subcategory_code, image_url, description } = req.body;
     
     // Validate required fields
     if (!menu_name || !price) {
@@ -259,6 +259,11 @@ exports.createMenuItem = (req, res) => {
       newMenuItem.image_url = image_url;
     }
     
+    // Only add description if it's provided
+    if (description) {
+      newMenuItem.description = description;
+    }
+    
     console.log('Creating menu item with data:', newMenuItem);
     
     // Insert into database
@@ -288,7 +293,7 @@ exports.createMenuItem = (req, res) => {
 // Update a menu item (admin only)
 exports.updateMenuItem = (req, res) => {
   const menuId = req.params.id;
-  let { menu_name, price, status, category_code, subcategory_code, image_url, image_path } = req.body;
+  let { menu_name, price, status, category_code, subcategory_code, image_url, image_path, description } = req.body;
   
   // Validate required fields
   if (!menu_name || !price) {
@@ -302,6 +307,7 @@ exports.updateMenuItem = (req, res) => {
   subcategory_code = subcategory_code || null;
   image_url = image_url || null;
   image_path = image_path || null;
+  description = description || null;
   
   // Ensure status is valid
   if (status && !['available', 'out_of_stock'].includes(status)) {
@@ -322,6 +328,7 @@ exports.updateMenuItem = (req, res) => {
   if (subcategory_code !== null) updatedMenuItem.subcategory_code = subcategory_code;
   if (image_url !== null) updatedMenuItem.image_url = image_url;
   if (image_path !== null) updatedMenuItem.image_path = image_path;
+  if (description !== null) updatedMenuItem.description = description;
   
   console.log('Updating menu item with data:', updatedMenuItem);
   

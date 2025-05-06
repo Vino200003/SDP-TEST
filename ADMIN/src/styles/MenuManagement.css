@@ -248,6 +248,27 @@ tr:hover {
   font-size: 14px;
 }
 
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.form-group.has-error textarea {
+  border-color: #f44336;
+}
+
 .form-hint {
   display: block;
   font-size: 12px;

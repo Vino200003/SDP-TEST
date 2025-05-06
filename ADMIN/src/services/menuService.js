@@ -56,7 +56,8 @@ export const createMenuItem = async (menuItemData) => {
       status: ['available', 'out_of_stock'].includes(menuItemData.status) ? menuItemData.status : 'available',
       category_code: menuItemData.category_code ? parseInt(menuItemData.category_code) : null,
       subcategory_code: menuItemData.subcategory_code ? parseInt(menuItemData.subcategory_code) : null,
-      image_url: menuItemData.image_url || null
+      image_url: menuItemData.image_url || null,
+      description: menuItemData.description || null
     };
     
     // Remove any properties with null values to prevent SQL errors
@@ -84,7 +85,7 @@ export const createMenuItem = async (menuItemData) => {
   }
 };
 
-// Update the updateMenuItem function to include image_path and handle nulls
+// Update the updateMenuItem function to include description and handle nulls
 export const updateMenuItem = async (id, menuItemData) => {
   try {
     // Clean the data to prevent null values
@@ -96,7 +97,8 @@ export const updateMenuItem = async (id, menuItemData) => {
       category_code: menuItemData.category_code || null,
       subcategory_code: menuItemData.subcategory_code || null,
       image_url: menuItemData.image_url || null,
-      image_path: menuItemData.image_path || null
+      image_path: menuItemData.image_path || null,
+      description: menuItemData.description || null
     };
     
     console.log('Updating menu item with data:', cleanedData);

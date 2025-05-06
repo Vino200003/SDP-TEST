@@ -119,6 +119,9 @@ const MenuItem = ({ item }) => {
       </div>
       <div className="menu-item-content">
         <h3 className="menu-item-name">{item.menu_name}</h3>
+        {item.description && (
+          <p className="menu-item-description">{item.description}</p>
+        )}
         <div className="menu-item-categories">
           <span className="menu-category">{item.category_name}</span>
           {item.subcategory_name && (

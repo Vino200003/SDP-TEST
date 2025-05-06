@@ -72,6 +72,7 @@ async function createTables() {
       subcategory_code INT,
       image_url VARCHAR(255),
       image_path VARCHAR(255),
+      description TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (category_code) REFERENCES categories(category_code)
         ON DELETE SET NULL,

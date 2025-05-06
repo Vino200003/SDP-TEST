@@ -29,7 +29,8 @@ function MenuManagement() {
     category_code: '',
     subcategory_code: '',
     image_url: '',
-    image_path: ''
+    image_path: '',
+    description: ''
   });
 
   // Additional state for category management
@@ -765,6 +766,15 @@ function MenuManagement() {
                 />
               </div>
               <div className="form-group">
+                <label>Description</label>
+                <textarea 
+                  value={newItem.description || ''}
+                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                  placeholder="Enter item description"
+                  rows="3"
+                ></textarea>
+              </div>
+              <div className="form-group">
                 <label>Category</label>
                 <select
                   value={newItem.category_code}
@@ -854,6 +864,15 @@ function MenuManagement() {
                   value={currentItem.price || ''}
                   onChange={(e) => setCurrentItem({...currentItem, price: e.target.value})}
                 />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea 
+                  value={currentItem.description || ''}
+                  onChange={(e) => setCurrentItem({...currentItem, description: e.target.value})}
+                  placeholder="Enter item description"
+                  rows="3"
+                ></textarea>
               </div>
               <div className="form-group">
                 <label>Category</label>
