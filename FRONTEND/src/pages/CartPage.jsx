@@ -8,13 +8,10 @@ const CartPage = () => {
   const [cart, setCart] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [subtotal, setSubtotal] = useState(0);
-  const [serviceFee, setServiceFee] = useState(2.50);
+  const [serviceFee, setServiceFee] = useState(0); // Initialize to 0 instead of fixed value
+  const [deliveryFee, setDeliveryFee] = useState(5.00);
   const [total, setTotal] = useState(0);
-  const [couponCode, setCouponCode] = useState('');
-  const [discount, setDiscount] = useState(0);
-  const [couponApplied, setCouponApplied] = useState(false);
-  const [couponError, setCouponError] = useState('');
-
+  
   useEffect(() => {
     // Load cart from localStorage
     const loadCart = () => {
@@ -33,14 +30,19 @@ const CartPage = () => {
     loadCart();
   }, []);
 
-  // Calculate totals whenever cart or discount changes
+  // Calculate totals whenever cart changes
   useEffect(() => {
     const newSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     setSubtotal(newSubtotal);
     
-    const newTotal = newSubtotal + serviceFee - discount;
+    // Calculate service fee as 5% of subtotal
+    const newServiceFee = newSubtotal * 0.05;
+    setServiceFee(newServiceFee);
+    
+    // Calculate new total with service fee and delivery fee
+    const newTotal = newSubtotal + newServiceFee + deliveryFee;
     setTotal(newTotal);
-  }, [cart, discount, serviceFee]);
+  }, [cart, deliveryFee]);
 
   // Format price for display
   const formatPrice = (price) => {
@@ -75,41 +77,6 @@ const CartPage = () => {
     
     // Dispatch cart updated event for navbar counter
     window.dispatchEvent(new Event('cartUpdated'));
-  };
-
-  // Handle coupon code application
-  const handleApplyCoupon = () => {
-    setCouponError('');
-    
-    // Simple coupon validation logic
-    if (!couponCode.trim()) {
-      setCouponError('Please enter a coupon code');
-      return;
-    }
-    
-    // Example coupon codes
-    const validCoupons = {
-      'WELCOME10': 10, // 10% discount
-      'SAVE20': 20,    // 20% discount
-      'SPECIAL15': 15  // 15% discount
-    };
-    
-    if (validCoupons[couponCode.toUpperCase()]) {
-      const discountPercent = validCoupons[couponCode.toUpperCase()];
-      const discountAmount = (subtotal * discountPercent) / 100;
-      setDiscount(discountAmount);
-      setCouponApplied(true);
-    } else {
-      setCouponError('Invalid coupon code');
-    }
-  };
-
-  // Handle coupon code removal
-  const handleRemoveCoupon = () => {
-    setCouponCode('');
-    setDiscount(0);
-    setCouponApplied(false);
-    setCouponError('');
   };
 
   // Clear entire cart
@@ -251,56 +218,18 @@ const CartPage = () => {
           <div className="cart-summary">
             <h3>Order Summary</h3>
             
-            <div className="coupon-section">
-              <h4>Have a coupon?</h4>
-              {!couponApplied ? (
-                <>
-                  <div className="coupon-input">
-                    <input
-                      type="text"
-                      placeholder="Enter coupon code"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                    />
-                    <button 
-                      className="apply-coupon-btn"
-                      onClick={handleApplyCoupon}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                  {couponError && <div className="error-text">{couponError}</div>}
-                </>
-              ) : (
-                <>
-                  <div className="coupon-applied">
-                    <i className="fas fa-check-circle"></i>
-                    Coupon "{couponCode}" applied successfully!
-                  </div>
-                  <button 
-                    className="remove-coupon-btn"
-                    onClick={handleRemoveCoupon}
-                  >
-                    Remove
-                  </button>
-                </>
-              )}
-            </div>
-            
             <div className="summary-details">
               <div className="summary-row">
                 <span>Subtotal</span>
                 <span>LKR {formatPrice(subtotal)}</span>
               </div>
-              {discount > 0 && (
-                <div className="summary-row discount">
-                  <span>Discount</span>
-                  <span>- LKR {formatPrice(discount)}</span>
-                </div>
-              )}
               <div className="summary-row">
-                <span>Service Fee</span>
+                <span>Service Fee (5%)</span>
                 <span>LKR {formatPrice(serviceFee)}</span>
+              </div>
+              <div className="summary-row">
+                <span>Delivery Fee</span>
+                <span>LKR {formatPrice(deliveryFee)}</span>
               </div>
               <div className="summary-row total">
                 <span>Total</span>

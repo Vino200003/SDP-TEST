@@ -25,7 +25,7 @@ const CheckoutPage = () => {
   // State for cart and order
   const [cart, setCart] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
-  const [serviceFee, setServiceFee] = useState(2.50);
+  const [serviceFee, setServiceFee] = useState(0); // Initialize to 0 instead of fixed value
   const [deliveryFee, setDeliveryFee] = useState(5.00);
   const [total, setTotal] = useState(0);
   const [deliveryMethod, setDeliveryMethod] = useState('delivery');
@@ -76,6 +76,10 @@ const CheckoutPage = () => {
     const newSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     setSubtotal(newSubtotal);
     
+    // Calculate service fee as 5% of subtotal
+    const newServiceFee = newSubtotal * 0.05;
+    setServiceFee(newServiceFee);
+    
     // Set delivery fee based on selected method
     if (deliveryMethod === 'pickup') {
       setDeliveryFee(0);
@@ -84,9 +88,9 @@ const CheckoutPage = () => {
     }
     
     // Calculate new total with service fee
-    const newTotal = newSubtotal + serviceFee + deliveryFee;
+    const newTotal = newSubtotal + newServiceFee + deliveryFee;
     setTotal(newTotal);
-  }, [cart, deliveryMethod, serviceFee, deliveryFee]);
+  }, [cart, deliveryMethod, deliveryFee]);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -679,7 +683,7 @@ const CheckoutPage = () => {
                       <span>LKR {formatPrice(subtotal)}</span>
                     </div>
                     <div className="summary-row">
-                      <span>Service Fee</span>
+                      <span>Service Fee (5%)</span>
                       <span>LKR {formatPrice(serviceFee)}</span>
                     </div>
                     {deliveryMethod === 'delivery' && (
