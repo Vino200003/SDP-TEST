@@ -24,7 +24,19 @@ const MenuPage = () => {
         
         // Get categories
         const categoriesData = await getMenuCategories();
-        setCategories(categoriesData);
+        
+        // Sort categories to ensure promotion is first
+        const sortedCategories = [...categoriesData].sort((a, b) => {
+          // Check if either category is a promotion
+          const aIsPromotion = a.category_name.toLowerCase().includes('promotion');
+          const bIsPromotion = b.category_name.toLowerCase().includes('promotion');
+          
+          if (aIsPromotion && !bIsPromotion) return -1; // a comes first
+          if (!aIsPromotion && bIsPromotion) return 1;  // b comes first
+          return 0; // keep original order
+        });
+        
+        setCategories(sortedCategories);
         
         // Get all menu items
         const menuData = await getAllMenuItems();
