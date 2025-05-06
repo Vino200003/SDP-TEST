@@ -5,10 +5,6 @@ import '../styles/CheckoutPage.css';
 const CheckoutPage = () => {
   // State for checkout data
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
     address: '',
     city: '',
     zipCode: '',
@@ -59,10 +55,6 @@ const CheckoutPage = () => {
       if (userData) {
         setFormData(prevData => ({
           ...prevData,
-          firstName: userData.first_name || '',
-          lastName: userData.last_name || '',
-          email: userData.email || '',
-          phone: userData.phone_number || '',
           address: userData.address || ''
         }));
       }
@@ -174,15 +166,6 @@ const CheckoutPage = () => {
       if (!formData.pickupTime) errors.pickupTime = 'Pickup time is required';
     }
     
-    // Basic validations
-    if (!formData.firstName.trim()) errors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) errors.lastName = 'Last name is required';
-    if (!formData.email.trim()) errors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Email is invalid';
-    if (!formData.phone.trim()) errors.phone = 'Phone number is required';
-    else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) 
-      errors.phone = 'Phone number must be 10 digits';
-    
     // Payment method validation
     if (formData.paymentMethod === 'credit-card') {
       if (!formData.cardName.trim()) errors.cardName = 'Name on card is required';
@@ -278,13 +261,16 @@ const CheckoutPage = () => {
     setOrderError('');
     
     try {
+      // Get user data from localStorage for contact info
+      const userData = JSON.parse(localStorage.getItem('user')) || {};
+      
       // Prepare order data
       const orderData = {
         customer: {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
+          firstName: userData.first_name || '',
+          lastName: userData.last_name || '',
+          email: userData.email || '',
+          phone: userData.phone_number || '',
           address: deliveryMethod === 'delivery' ? formData.address : '',
           city: deliveryMethod === 'delivery' ? formData.city : '',
           zipCode: deliveryMethod === 'delivery' ? formData.zipCode : '',
@@ -355,7 +341,7 @@ const CheckoutPage = () => {
             <h3>Order Placed Successfully!</h3>
             <p>Thank you for your order. Your order has been received and is being processed.</p>
             <p className="order-number">Order Reference: #{Math.floor(Math.random() * 1000000)}</p>
-            <p>We've sent a confirmation email to <strong>{formData.email}</strong>.</p>
+            <p>We've sent a confirmation email to <strong>{JSON.parse(localStorage.getItem('user'))?.email || 'your email'}</strong>.</p>
             <button 
               className="back-to-home-btn"
               onClick={() => window.navigateTo ? window.navigateTo('/') : window.location.href = '/'}
@@ -373,63 +359,6 @@ const CheckoutPage = () => {
             
             <form onSubmit={handleSubmit} className="checkout-form">
               <div className="checkout-form-container">
-                <div className="form-section">
-                  <h3>Contact Information</h3>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="firstName">First Name</label>
-                      <input
-                        type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                        className={formErrors.firstName ? 'error' : ''}
-                      />
-                      {formErrors.firstName && <span className="error-text">{formErrors.firstName}</span>}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="lastName">Last Name</label>
-                      <input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        className={formErrors.lastName ? 'error' : ''}
-                      />
-                      {formErrors.lastName && <span className="error-text">{formErrors.lastName}</span>}
-                    </div>
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label htmlFor="email">Email</label>
-                      <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className={formErrors.email ? 'error' : ''}
-                      />
-                      {formErrors.email && <span className="error-text">{formErrors.email}</span>}
-                    </div>
-                    <div className="form-group">
-                      <label htmlFor="phone">Phone Number</label>
-                      <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className={formErrors.phone ? 'error' : ''}
-                        placeholder="e.g., 1234567890"
-                      />
-                      {formErrors.phone && <span className="error-text">{formErrors.phone}</span>}
-                    </div>
-                  </div>
-                </div>
                 
                 <div className="form-section">
                   <h3>Delivery Method</h3>

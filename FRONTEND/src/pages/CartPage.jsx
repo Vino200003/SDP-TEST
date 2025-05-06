@@ -249,8 +249,6 @@ const CartPage = () => {
               <div className="payment-icons">
                 <i className="fab fa-cc-visa"></i>
                 <i className="fab fa-cc-mastercard"></i>
-                <i className="fab fa-cc-amex"></i>
-                <i className="fab fa-cc-paypal"></i>
               </div>
               <p className="payment-note">Secure payment processing</p>
             </div>
