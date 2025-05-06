@@ -352,6 +352,8 @@ exports.getOrderStats = (req, res) => {
       SUM(total_amount) as total_revenue,
       COUNT(CASE WHEN order_status = 'Completed' THEN 1 END) as completed_orders,
       COUNT(CASE WHEN order_status = 'Cancelled' THEN 1 END) as cancelled_orders,
+      COUNT(CASE WHEN order_status = 'Pending' THEN 1 END) as pending_orders,
+      COUNT(CASE WHEN order_status = 'In Progress' THEN 1 END) as in_progress_orders,
       COUNT(CASE WHEN order_type = 'Dine-in' THEN 1 END) as dine_in_orders,
       COUNT(CASE WHEN order_type = 'Takeaway' THEN 1 END) as takeaway_orders,
       COUNT(CASE WHEN order_type = 'Delivery' THEN 1 END) as delivery_orders

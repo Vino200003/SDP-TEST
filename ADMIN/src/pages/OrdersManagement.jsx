@@ -51,19 +51,39 @@ function OrdersManagement() {
     fetchOrderStats();
   }, []);
 
-  // Fetch orders when filters change
+  // Fetch orders when filters change - explicitly listen for date range changes
   useEffect(() => {
     fetchOrders();
-  }, [filters.page, filters.limit, filters.status, filters.orderType]);
+    // If date range changes, also update the stats
+    if (filters.dateRange.startDate || filters.dateRange.endDate) {
+      fetchOrderStats();
+    }
+  }, [filters.page, filters.limit, filters.status, filters.orderType, filters.dateRange.startDate, filters.dateRange.endDate]);
 
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
+      // Format dates for API if needed (ISO format is typically best for APIs)
+      const startDate = filters.dateRange.startDate ? new Date(filters.dateRange.startDate).toISOString().split('T')[0] : '';
+      const endDate = filters.dateRange.endDate ? new Date(filters.dateRange.endDate).toISOString().split('T')[0] : '';
+      
+      // Explicitly log the filter parameters to debug
+      console.log('Fetching orders with filters:', {
+        page: filters.page,
+        limit: filters.limit, 
+        status: filters.status,
+        orderType: filters.orderType,
+        startDate: startDate,
+        endDate: endDate
+      });
+      
       const data = await orderService.getAllOrders({
         page: filters.page,
         limit: filters.limit,
         status: filters.status,
         orderType: filters.orderType,
+        startDate: startDate,
+        endDate: endDate
       });
       
       // Check the structure of the returned data
@@ -89,10 +109,10 @@ function OrdersManagement() {
 
   const fetchOrderStats = async () => {
     try {
-      const data = await orderService.getOrderStats(
-        filters.dateRange.startDate,
-        filters.dateRange.endDate
-      );
+      const startDate = filters.dateRange.startDate ? new Date(filters.dateRange.startDate).toISOString().split('T')[0] : '';
+      const endDate = filters.dateRange.endDate ? new Date(filters.dateRange.endDate).toISOString().split('T')[0] : '';
+      
+      const data = await orderService.getOrderStats(startDate, endDate);
       
       // Set stats based on the returned data structure
       setOrderStats({
@@ -100,10 +120,18 @@ function OrdersManagement() {
         pending: data.pending_orders || 0,
         completed: data.completed_orders || 0,
         cancelled: data.cancelled_orders || 0,
-        in_progress: data.orders_in_progress || 0
+        in_progress: data.in_progress_orders || data.orders_in_progress || 0
       });
     } catch (error) {
       console.error('Error fetching order stats:', error);
+      // Set default values in case of error
+      setOrderStats({
+        total_orders: 0,
+        pending: 0,
+        completed: 0,
+        cancelled: 0,
+        in_progress: 0
+      });
     }
   };
 
@@ -118,33 +146,48 @@ function OrdersManagement() {
 
   const applySearchFilter = () => {
     const searchLower = filters.searchTerm.toLowerCase();
-    const result = orders.filter(
-      order => 
-        order.order_id.toString().includes(searchLower) ||
-        (order.user_id && order.user_id.toString().includes(searchLower))
-    );
+    const result = orders.filter(order => {
+      // Search by order ID
+      if (order.order_id && order.order_id.toString().toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      
+      // Search by user ID
+      if (order.user_id && order.user_id.toString().toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      
+      // Search by customer name if available
+      if (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      
+      // Search by email if available
+      if (order.email && order.email.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      
+      // Search by phone number if available
+      if (order.phone_number && order.phone_number.toLowerCase().includes(searchLower)) {
+        return true;
+      }
+      
+      return false;
+    });
+    
     setFilteredOrders(result);
   };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     
-    if (name === 'startDate' || name === 'endDate') {
-      setFilters({
-        ...filters,
-        dateRange: {
-          ...filters.dateRange,
-          [name]: value
-        }
-      });
-    } else {
-      setFilters({
-        ...filters,
-        [name]: value,
-        // Reset to page 1 when changing filters
-        page: 1
-      });
-    }
+    // Remove the conditional for date handling since we're removing the date filters
+    setFilters({
+      ...filters,
+      [name]: value,
+      // Reset to page 1 when changing filters
+      page: 1
+    });
   };
 
   const resetFilters = () => {
@@ -297,22 +340,7 @@ function OrdersManagement() {
               <option value="Delivery">Delivery</option>
             </select>
             
-            <div className="date-filters">
-              <input
-                type="date"
-                name="startDate"
-                value={filters.dateRange.startDate}
-                onChange={handleFilterChange}
-                placeholder="Start Date"
-              />
-              <input
-                type="date"
-                name="endDate"
-                value={filters.dateRange.endDate}
-                onChange={handleFilterChange}
-                placeholder="End Date"
-              />
-            </div>
+            {/* Remove date filters section */}
             
             <button className="reset-filters-btn" onClick={resetFilters}>
               Reset Filters
@@ -340,8 +368,8 @@ function OrdersManagement() {
                 {filteredOrders.length > 0 ? (
                   filteredOrders.map((order) => (
                     <tr key={order.order_id}>
-                      <td>#{order.order_id}</td>
-                      <td>{order.user_id ? `User #${order.user_id}` : 'Guest'}</td>
+                      <td>{order.order_id}</td>
+                      <td>{order.user_id ? `User ${order.user_id}` : 'Guest'}</td>
                       <td>{order.order_type}</td>
                       <td>{formatDate(order.created_at)}</td>
                       <td>Rs. {parseFloat(order.total_amount).toFixed(2)}</td>
