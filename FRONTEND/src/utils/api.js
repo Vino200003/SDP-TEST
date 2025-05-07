@@ -619,8 +619,8 @@ export const cancelOrder = async (orderId) => {
       throw new Error('Authentication required');
     }
     
-    const response = await fetch(`/api/orders/${orderId}/cancel`, {
-      method: 'PATCH',
+    const response = await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

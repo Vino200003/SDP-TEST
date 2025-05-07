@@ -8,28 +8,31 @@ router.use((req, res, next) => {
   next();
 });
 
-// Order statistics
-router.get('/stats', orderController.getOrderStats);
-
-// Get all orders with filtering
+// Get all orders (with pagination and filtering)
 router.get('/', orderController.getAllOrders);
 
 // Get order by ID
 router.get('/:id', orderController.getOrderById);
 
-// Create new order
+// Create a new order
 router.post('/', orderController.createOrder);
-
-// Update order status - support both PATCH and PUT methods
-router.patch('/:id/status', orderController.updateOrderStatus);
-router.put('/:id/status', orderController.updateOrderStatus); // Add PUT method support
 
 // Update order
 router.put('/:id', orderController.updateOrder);
 router.patch('/:id', orderController.updateOrder);
 
+// Update order status
+router.patch('/:id/status', orderController.updateOrderStatus);
+router.put('/:id/status', orderController.updateOrderStatus); // Add PUT method support
+
+// Cancel order (new endpoint)
+router.post('/:id/cancel', orderController.cancelOrder);
+
 // Delete order
 router.delete('/:id', orderController.deleteOrder);
+
+// Get order statistics
+router.get('/stats/overview', orderController.getOrderStats);
 
 console.log('Order routes initialized');
 

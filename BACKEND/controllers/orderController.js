@@ -536,6 +536,63 @@ exports.deleteOrder = (req, res) => {
   });
 };
 
+// Cancel an order
+exports.cancelOrder = (req, res) => {
+  const orderId = req.params.id;
+  const { cancellation_reason } = req.body;
+  
+  // First check if order exists and can be cancelled
+  db.query('SELECT * FROM orders WHERE order_id = ?', [orderId], (err, results) => {
+    if (err) {
+      console.error('Error fetching order:', err);
+      return res.status(500).json({ 
+        message: 'Error fetching order', 
+        error: err.message 
+      });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+    
+    const order = results[0];
+    
+    // Only allow cancelling orders that are in Pending or In Progress status
+    const cancellableStatuses = ['Pending', 'In Progress'];
+    if (!cancellableStatuses.includes(order.order_status)) {
+      return res.status(400).json({ 
+        message: `Cannot cancel order in ${order.order_status} status. Only orders in ${cancellableStatuses.join(' or ')} status can be cancelled.` 
+      });
+    }
+    
+    // Update order status to 'Cancelled'
+    const updateData = { 
+      order_status: 'Cancelled', 
+      updated_at: new Date()
+    };
+    
+    // Add cancellation reason if provided
+    if (cancellation_reason) {
+      updateData.cancellation_reason = cancellation_reason;
+    }
+    
+    db.query('UPDATE orders SET ? WHERE order_id = ?', [updateData, orderId], (updateErr, result) => {
+      if (updateErr) {
+        console.error('Error cancelling order:', updateErr);
+        return res.status(500).json({ 
+          message: 'Error cancelling order', 
+          error: updateErr.message 
+        });
+      }
+      
+      res.json({
+        message: 'Order cancelled successfully',
+        order_id: orderId
+      });
+    });
+  });
+};
+
 // Get order statistics
 exports.getOrderStats = (req, res) => {
   const { start_date, end_date } = req.query;

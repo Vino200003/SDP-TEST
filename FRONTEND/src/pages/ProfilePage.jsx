@@ -8,7 +8,8 @@ import {
   getUserOrders, 
   getOrderDetails,
   updateOrder,
-  getAllMenuItems
+  getAllMenuItems,
+  cancelOrder
 } from '../utils/api';
 import '../styles/ProfilePage.css';
 
@@ -53,6 +54,10 @@ const ProfilePage = () => {
   const [selectedMenuItem, setSelectedMenuItem] = useState(null);
   const [selectedMenuItemQuantity, setSelectedMenuItemQuantity] = useState(1);
   const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  
+  // Add new state for cancellation modal
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelOrderId, setCancelOrderId] = useState(null);
   
   // Fetch user data on component mount
   useEffect(() => {
@@ -450,42 +455,51 @@ const ProfilePage = () => {
     setEditedItems([]);
   };
 
-  // Add function to cancel an order
-  const handleCancelOrder = async (orderId) => {
-    if (window.confirm('Are you sure you want to cancel this order?')) {
-      try {
-        setIsLoading(true);
-        setSubmitError('');
-        
-        // Mock API call - replace with actual API call when available
-        await new Promise(resolve => setTimeout(resolve, 800));
-        console.log('Cancelling order:', orderId);
-        
-        // Update the order status in the local state
-        const updatedOrderHistory = orderHistory.map(order => 
-          order.order_id === orderId 
-            ? {...order, order_status: 'Cancelled'} 
-            : order
-        );
-        setOrderHistory(updatedOrderHistory);
-        
-        // If the selected order is the one being cancelled, update it too
-        if (selectedOrder && selectedOrder.order_id === orderId) {
-          setSelectedOrder({...selectedOrder, order_status: 'Cancelled'});
-        }
-        
-        setIsLoading(false);
-        setSubmitSuccess(true);
-        setTimeout(() => {
-          setSubmitSuccess(false);
-        }, 3000);
-        
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error cancelling order:', err);
-        setSubmitError('Failed to cancel order. Please try again.');
-        setIsLoading(false);
+  // Update the handleCancelOrder function to show the modal
+  const handleCancelOrder = (orderId) => {
+    setCancelOrderId(orderId);
+    setShowCancelModal(true);
+  };
+
+  // Add function to confirm order cancellation
+  const confirmCancelOrder = async () => {
+    try {
+      setIsLoading(true);
+      setSubmitError('');
+      
+      // Call the cancelOrder API without the reason parameter
+      await cancelOrder(cancelOrderId);
+      
+      // Update the order status in the local state
+      const updatedOrderHistory = orderHistory.map(order => 
+        order.order_id === cancelOrderId 
+          ? {...order, order_status: 'Cancelled'} 
+          : order
+      );
+      setOrderHistory(updatedOrderHistory);
+      
+      // If the selected order is the one being cancelled, update it too
+      if (selectedOrder && selectedOrder.order_id === cancelOrderId) {
+        setSelectedOrder({...selectedOrder, order_status: 'Cancelled'});
       }
+      
+      // Close the modal and reset state
+      setShowCancelModal(false);
+      setCancelOrderId(null);
+      
+      setIsLoading(false);
+      setSubmitSuccess(true);
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 3000);
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      setSubmitError(err.message || 'Failed to cancel order. Please try again.');
+      setIsLoading(false);
+      
+      // Close the modal even if there's an error
+      setShowCancelModal(false);
+      setCancelOrderId(null);
     }
   };
 
@@ -1132,6 +1146,51 @@ const ProfilePage = () => {
           )}
         </div>
       </div>
+      
+      {/* Simplified Cancel Order Modal */}
+      {showCancelModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '450px' }}>
+            <div className="modal-header">
+              <h2>Cancel Order</h2>
+              <button 
+                className="close-btn" 
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelOrderId(null);
+                }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '1.1rem', marginBottom: '10px' }}>Are you sure you want to cancel this order?</p>
+              <p style={{ color: '#666' }}>This action cannot be undone.</p>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="cancel-btn" 
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelOrderId(null);
+                }}
+                disabled={isLoading}
+              >
+                No, Keep Order
+              </button>
+              <button 
+                className="edit-order-btn" 
+                onClick={confirmCancelOrder}
+                style={{ backgroundColor: '#e74c3c' }}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Cancelling...' : 'Yes, Cancel Order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <Footer />
     </div>
   );
