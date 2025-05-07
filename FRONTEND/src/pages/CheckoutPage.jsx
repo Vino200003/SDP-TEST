@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Footer from '../components/Footer';
+import { getUserProfile } from '../utils/api';
 import '../styles/CheckoutPage.css';
 
 const CheckoutPage = () => {
@@ -21,7 +22,7 @@ const CheckoutPage = () => {
   // State for cart and order
   const [cart, setCart] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
-  const [serviceFee, setServiceFee] = useState(0); // Initialize to 0 instead of fixed value
+  const [serviceFee, setServiceFee] = useState(0);
   const [deliveryFee, setDeliveryFee] = useState(5.00);
   const [total, setTotal] = useState(0);
   const [deliveryMethod, setDeliveryMethod] = useState('delivery');
@@ -30,11 +31,17 @@ const CheckoutPage = () => {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [formErrors, setFormErrors] = useState({});
+  
+  // New state to store user profile data and control address editing
+  const [userProfile, setUserProfile] = useState(null);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
 
-  // Fetch cart from localStorage
+  // Fetch user profile and cart from localStorage
   useEffect(() => {
-    const fetchCartFromStorage = () => {
+    const fetchUserProfileAndCart = async () => {
       setIsLoading(true);
+      
+      // Fetch cart data
       const storedCart = JSON.parse(localStorage.getItem('cart')) || [];
       
       // If cart is empty, redirect back to cart page
@@ -48,19 +55,49 @@ const CheckoutPage = () => {
       }
       
       setCart(storedCart);
-      setIsLoading(false);
       
-      // Try to prefill user data if available
-      const userData = JSON.parse(localStorage.getItem('user')) || {};
-      if (userData) {
-        setFormData(prevData => ({
-          ...prevData,
-          address: userData.address || ''
-        }));
+      // Try to fetch user profile data
+      try {
+        const userData = await getUserProfile();
+        setUserProfile(userData);
+        
+        // Parse address info if it exists as a single string
+        if (userData && userData.address) {
+          let addressParts = {
+            address: userData.address,
+            city: '',
+            zipCode: ''
+          };
+          
+          // Try to parse address if it's in format "street, city, zip"
+          const addressString = userData.address;
+          const commaMatches = addressString.match(/,/g);
+          
+          if (commaMatches && commaMatches.length >= 2) {
+            const lastCommaIndex = addressString.lastIndexOf(',');
+            const secondLastCommaIndex = addressString.lastIndexOf(',', lastCommaIndex - 1);
+            
+            addressParts = {
+              address: addressString.substring(0, secondLastCommaIndex).trim(),
+              city: addressString.substring(secondLastCommaIndex + 1, lastCommaIndex).trim(),
+              zipCode: addressString.substring(lastCommaIndex + 1).trim()
+            };
+          }
+          
+          setFormData(prevData => ({
+            ...prevData,
+            ...addressParts
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Continue without profile data
       }
+      
+      setIsLoading(false);
     };
 
-    fetchCartFromStorage();
+    fetchUserProfileAndCart();
   }, []);
 
   // Calculate totals whenever cart or delivery method changes
@@ -157,9 +194,15 @@ const CheckoutPage = () => {
     
     // Skip address validation if pickup is selected
     if (deliveryMethod === 'delivery') {
-      if (!formData.address.trim()) errors.address = 'Address is required';
-      if (!formData.city.trim()) errors.city = 'City is required';
-      if (!formData.zipCode.trim()) errors.zipCode = 'ZIP code is required';
+      if (isEditingAddress) {
+        // Only validate address fields if user is editing them
+        if (!formData.address.trim()) errors.address = 'Address is required';
+        if (!formData.city.trim()) errors.city = 'City is required';
+        if (!formData.zipCode.trim()) errors.zipCode = 'ZIP code is required';
+      } else if (!userProfile || !userProfile.address) {
+        // If not editing but no profile address exists
+        errors.address = 'Delivery address is required. Please edit your address.';
+      }
     } else {
       // Validate pickup date and time
       if (!formData.pickupDate) errors.pickupDate = 'Pickup date is required';
@@ -245,6 +288,22 @@ const CheckoutPage = () => {
     }
   };
 
+  // Handle toggling address edit mode
+  const toggleAddressEdit = () => {
+    setIsEditingAddress(!isEditingAddress);
+  };
+
+  // Get formatted address from user profile or form data
+  const getFormattedAddress = () => {
+    if (userProfile && userProfile.address && !isEditingAddress) {
+      return userProfile.address;
+    } else {
+      return formData.address && formData.city && formData.zipCode 
+        ? `${formData.address}, ${formData.city}, ${formData.zipCode}`
+        : 'No address provided';
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -290,7 +349,7 @@ const CheckoutPage = () => {
         total_amount: parseFloat(total.toFixed(2)),
         payment_method: formData.paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash',
         delivery_address: deliveryMethod === 'delivery' ? 
-          `${formData.address}, ${formData.city}, ${formData.zipCode}` : '',
+          (isEditingAddress ? `${formData.address}, ${formData.city}, ${formData.zipCode}` : userProfile.address) : '',
         delivery_notes: formData.deliveryNotes || '',
         pickup_time: deliveryMethod === 'pickup' ? 
           `${formData.pickupDate} ${formData.pickupTime}` : null,
@@ -421,45 +480,82 @@ const CheckoutPage = () => {
                 {deliveryMethod === 'delivery' && (
                   <div className="form-section">
                     <h3>Delivery Address</h3>
-                    <div className="form-group">
-                      <label htmlFor="address">Street Address</label>
-                      <input
-                        type="text"
-                        id="address"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                        className={formErrors.address ? 'error' : ''}
-                      />
-                      {formErrors.address && <span className="error-text">{formErrors.address}</span>}
-                    </div>
                     
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label htmlFor="city">City</label>
-                        <input
-                          type="text"
-                          id="city"
-                          name="city"
-                          value={formData.city}
-                          onChange={handleChange}
-                          className={formErrors.city ? 'error' : ''}
-                        />
-                        {formErrors.city && <span className="error-text">{formErrors.city}</span>}
+                    {!isEditingAddress ? (
+                      <div className="saved-address-container">
+                        <div className="saved-address">
+                          <div className="address-icon">
+                            <i className="fas fa-map-marker-alt"></i>
+                          </div>
+                          <div className="address-details">
+                            <p className="address-text">{getFormattedAddress()}</p>
+                            {userProfile && userProfile.phone_number && (
+                              <p className="address-phone">{userProfile.phone_number}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          className="edit-address-btn"
+                          onClick={toggleAddressEdit}
+                        >
+                          <i className="fas fa-edit"></i> Change Address
+                        </button>
                       </div>
-                      <div className="form-group">
-                        <label htmlFor="zipCode">ZIP Code</label>
-                        <input
-                          type="text"
-                          id="zipCode"
-                          name="zipCode"
-                          value={formData.zipCode}
-                          onChange={handleChange}
-                          className={formErrors.zipCode ? 'error' : ''}
-                        />
-                        {formErrors.zipCode && <span className="error-text">{formErrors.zipCode}</span>}
-                      </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="edit-address-header">
+                          <p>Enter New Delivery Address</p>
+                          <button 
+                            type="button" 
+                            className="cancel-edit-btn"
+                            onClick={toggleAddressEdit}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        
+                        <div className="form-group">
+                          <label htmlFor="address">Street Address</label>
+                          <input
+                            type="text"
+                            id="address"
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            className={formErrors.address ? 'error' : ''}
+                          />
+                          {formErrors.address && <span className="error-text">{formErrors.address}</span>}
+                        </div>
+                        
+                        <div className="form-row">
+                          <div className="form-group">
+                            <label htmlFor="city">City</label>
+                            <input
+                              type="text"
+                              id="city"
+                              name="city"
+                              value={formData.city}
+                              onChange={handleChange}
+                              className={formErrors.city ? 'error' : ''}
+                            />
+                            {formErrors.city && <span className="error-text">{formErrors.city}</span>}
+                          </div>
+                          <div className="form-group">
+                            <label htmlFor="zipCode">ZIP Code</label>
+                            <input
+                              type="text"
+                              id="zipCode"
+                              name="zipCode"
+                              value={formData.zipCode}
+                              onChange={handleChange}
+                              className={formErrors.zipCode ? 'error' : ''}
+                            />
+                            {formErrors.zipCode && <span className="error-text">{formErrors.zipCode}</span>}
+                          </div>
+                        </div>
+                      </>
+                    )}
                     
                     <div className="form-group">
                       <label htmlFor="deliveryNotes">Delivery Instructions (Optional)</label>
@@ -474,99 +570,38 @@ const CheckoutPage = () => {
                   </div>
                 )}
                 
-                {deliveryMethod === 'pickup' && (
-                  <div className="form-section">
-                    <h3>Pickup Details</h3>
-                    <p className="pickup-info">
-                      Please select your preferred pickup date and time. Our restaurant is open daily from 11:00 AM to 9:00 PM.
-                    </p>
-                    
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label htmlFor="pickupDate">Pickup Date</label>
-                        <select
-                          id="pickupDate"
-                          name="pickupDate"
-                          value={formData.pickupDate}
-                          onChange={handleChange}
-                          className={formErrors.pickupDate ? 'error' : ''}
-                        >
-                          <option value="">Select a date</option>
-                          {availableDates.map((date, index) => (
-                            <option key={index} value={date.value}>
-                              {date.display}
-                            </option>
-                          ))}
-                        </select>
-                        {formErrors.pickupDate && <span className="error-text">{formErrors.pickupDate}</span>}
-                      </div>
-                      
-                      <div className="form-group">
-                        <label htmlFor="pickupTime">Pickup Time</label>
-                        <select
-                          id="pickupTime"
-                          name="pickupTime"
-                          value={formData.pickupTime}
-                          onChange={handleChange}
-                          className={formErrors.pickupTime ? 'error' : ''}
-                        >
-                          <option value="">Select a time</option>
-                          {timeSlots.map((time, index) => (
-                            <option key={index} value={time}>
-                              {time}
-                            </option>
-                          ))}
-                        </select>
-                        {formErrors.pickupTime && <span className="error-text">{formErrors.pickupTime}</span>}
-                      </div>
-                    </div>
-                    
-                    <div className="form-group">
-                      <label htmlFor="pickupNotes">Special Instructions (Optional)</label>
-                      <textarea
-                        id="pickupNotes"
-                        name="deliveryNotes"
-                        value={formData.deliveryNotes}
-                        onChange={handleChange}
-                        placeholder="Any special instructions for your pickup order?"
-                      ></textarea>
-                    </div>
-                  </div>
-                )}
-                
                 <div className="form-section">
                   <h3>Payment Method</h3>
                   <div className="payment-options">
                     <div className="payment-option">
-                      <input
-                        type="radio"
-                        id="credit-card"
-                        name="paymentMethod"
-                        value="credit-card"
-                        checked={formData.paymentMethod === 'credit-card'}
-                        onChange={handleChange}
-                      />
-                      <label htmlFor="credit-card">
-                        <i className="far fa-credit-card"></i> Credit/Debit Card
+                      <label className="radio-container">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="credit-card"
+                          checked={formData.paymentMethod === 'credit-card'}
+                          onChange={handleChange}
+                        />
+                        <span className="radio-label">Credit/Debit Card</span>
                       </label>
                     </div>
+                    
                     <div className="payment-option">
-                      <input
-                        type="radio"
-                        id="cash"
-                        name="paymentMethod"
-                        value="cash"
-                        checked={formData.paymentMethod === 'cash'}
-                        onChange={handleChange}
-                      />
-                      <label htmlFor="cash">
-                        <i className="fas fa-money-bill-wave"></i> Cash on {deliveryMethod === 'delivery' ? 'Delivery' : 'Pickup'}
+                      <label className="radio-container">
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value="cash"
+                          checked={formData.paymentMethod === 'cash'}
+                          onChange={handleChange}
+                        />
+                        <span className="radio-label">Cash on Delivery</span>
                       </label>
                     </div>
                   </div>
-                  
+
                   {formData.paymentMethod === 'credit-card' && (
-                    <div className="credit-card-details">
+                    <div className="card-details">
                       <div className="form-group">
                         <label htmlFor="cardName">Name on Card</label>
                         <input
@@ -628,6 +663,56 @@ const CheckoutPage = () => {
                     </div>
                   )}
                 </div>
+                
+                {/* The pickup section was incorrectly nested */}
+                {deliveryMethod === 'pickup' && (
+                  <div className="form-section">
+                    <h3>Pickup Details</h3>
+                    <p className="pickup-info">
+                      Please select your preferred pickup date and time. Our restaurant is open daily from 11:00 AM to 9:00 PM.
+                    </p>
+                    
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label htmlFor="pickupDate">Pickup Date</label>
+                        <select
+                          id="pickupDate"
+                          name="pickupDate"
+                          value={formData.pickupDate}
+                          onChange={handleChange}
+                          className={formErrors.pickupDate ? 'error' : ''}
+                        >
+                          <option value="">Select Date</option>
+                          {availableDates.map((date, index) => (
+                            <option key={index} value={date.value}>
+                              {date.display}
+                            </option>
+                          ))}
+                        </select>
+                        {formErrors.pickupDate && <span className="error-text">{formErrors.pickupDate}</span>}
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="pickupTime">Pickup Time</label>
+                        <select
+                          id="pickupTime"
+                          name="pickupTime"
+                          value={formData.pickupTime}
+                          onChange={handleChange}
+                          className={formErrors.pickupTime ? 'error' : ''}
+                        >
+                          <option value="">Select Time</option>
+                          {timeSlots.map((time, index) => (
+                            <option key={index} value={time}>
+                              {time}
+                            </option>
+                          ))}
+                        </select>
+                        {formErrors.pickupTime && <span className="error-text">{formErrors.pickupTime}</span>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
               </div>
               
               <div className="order-summary-container">
