@@ -1,15 +1,25 @@
+import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import StatCard from '../components/StatCard';
 import RecentOrders from '../components/RecentOrders';
+import { getCurrentUser } from '../services/authService';
 import '../styles/Dashboard.css';
 
 function Dashboard() {
+  const [adminUser, setAdminUser] = useState(null);
+  
+  useEffect(() => {
+    // Get current admin user data
+    const admin = getCurrentUser();
+    setAdminUser(admin);
+  }, []);
+  
   return (
     <div className="dashboard-container">
       <Sidebar />
       <main className="dashboard-content">
-        <Header title="Dashboard" />
+        <Header title={`Dashboard ${adminUser ? '- Welcome, ' + adminUser.first_name : ''}`} />
         
         <div className="dashboard-stats">
           <StatCard 

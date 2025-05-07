@@ -7,15 +7,18 @@ const port = process.env.PORT || 5000;
 const userRoutes = require('./routes/userRoutes');
 const menuRoutes = require('./routes/menuRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // Make sure this is added
 
 // Use routes
 app.use('/api/users', userRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api/admin', adminRoutes); // Make sure this is added
 
 console.log('User routes initialized');
 console.log('Menu routes initialized');
 console.log('Reservation routes initialized');
+console.log('Admin routes initialized'); // Add this log
 
 // Add more detailed logging for server startup
 app.listen(port, () => {

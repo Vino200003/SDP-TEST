@@ -1,9 +1,16 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { logout } from '../services/authService';
 import '../styles/Sidebar.css';
 import logo from '../assets/logo.png';
 
 function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
   
   return (
     <div className="sidebar">
@@ -77,10 +84,10 @@ function Sidebar() {
         </ul>
       </nav>
       <div className="sidebar-footer">
-        <Link to="/logout" className="logout-button">
+        <button onClick={handleLogout} className="logout-button">
           <span className="icon">🚪</span>
           Logout
-        </Link>
+        </button>
       </div>
     </div>
   );

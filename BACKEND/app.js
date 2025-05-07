@@ -5,8 +5,10 @@ const path = require('path');
 require('dotenv').config();
 const userRoutes = require('./routes/userRoutes');
 const menuRoutes = require('./routes/menuRoutes');
-const reservationRoutes = require('./routes/reservationRoutes'); // Add reservation routes
-const orderRoutes = require('./routes/orderRoutes'); // Add order routes
+const reservationRoutes = require('./routes/reservationRoutes'); 
+const orderRoutes = require('./routes/orderRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // Add admin routes
+const adminOrderRoutes = require('./routes/adminOrderRoutes'); // Add this line
 
 const app = express();
 
@@ -35,9 +37,11 @@ app.use('/images', express.static(path.join(__dirname, '../FRONTEND/public')));
 
 // API Routes - make sure this is correctly configured
 app.use('/api/users', userRoutes);
-app.use('/api/menu', menuRoutes); // This is important - ensure it's '/api/menu'
-app.use('/api/reservations', reservationRoutes); // Add reservation routes
-app.use('/api/orders', orderRoutes); // Add order routes
+app.use('/api/menu', menuRoutes);
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/admin', adminRoutes); // Ensure admin routes are registered
+app.use('/api/admin/orders', adminOrderRoutes); // Add this line
 
 // Default route - add more logging to help with debugging
 app.get('/', (req, res) => {

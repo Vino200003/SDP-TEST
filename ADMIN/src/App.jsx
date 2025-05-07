@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { isAuthenticated } from './services/authService';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MenuManagement from './pages/MenuManagement';
 import OrdersManagement from './pages/OrdersManagement';
@@ -6,22 +8,81 @@ import OrdersManagement from './pages/OrdersManagement';
 import PlaceholderPage from './components/PlaceholderPage';
 import './App.css';
 
+// Protected Route component
+const ProtectedRoute = ({ children }) => {
+  if (!isAuthenticated()) {
+    // Redirect to login if not authenticated
+    return <Navigate to="/login" />;
+  }
+  return children;
+};
+
 function App() {
   return (
     <Routes>
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/menu-management" element={<MenuManagement />} />
-      <Route path="/orders" element={<OrdersManagement />} />
-      <Route path="/reservations" element={<PlaceholderPage title="Table Reservations" />} />
-      <Route path="/inventory" element={<PlaceholderPage title="Inventory" />} />
-      <Route path="/staff" element={<PlaceholderPage title="Staff Management" />} />
-      <Route path="/attendance" element={<PlaceholderPage title="Attendance" />} />
-      <Route path="/delivery" element={<PlaceholderPage title="Delivery Management" />} />
-      <Route path="/settings" element={<PlaceholderPage title="Admin Settings" />} />
-      <Route path="/reports" element={<PlaceholderPage title="Reports" />} />
-      <Route path="/logout" element={<Navigate to="/login" />} />
-      <Route path="/" element={<Navigate to="/dashboard" />} />
-      <Route path="*" element={<Navigate to="/dashboard" />} />
+      {/* Public routes */}
+      <Route path="/login" element={<Login />} />
+      
+      {/* Protected routes */}
+      <Route path="/dashboard" element={
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      } />
+      <Route path="/menu-management" element={
+        <ProtectedRoute>
+          <MenuManagement />
+        </ProtectedRoute>
+      } />
+      <Route path="/orders" element={
+        <ProtectedRoute>
+          <OrdersManagement />
+        </ProtectedRoute>
+      } />
+      <Route path="/reservations" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Table Reservations" />
+        </ProtectedRoute>
+      } />
+      <Route path="/inventory" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Inventory" />
+        </ProtectedRoute>
+      } />
+      <Route path="/staff" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Staff Management" />
+        </ProtectedRoute>
+      } />
+      <Route path="/attendance" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Attendance" />
+        </ProtectedRoute>
+      } />
+      <Route path="/delivery" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Delivery Management" />
+        </ProtectedRoute>
+      } />
+      <Route path="/settings" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Admin Settings" />
+        </ProtectedRoute>
+      } />
+      <Route path="/reports" element={
+        <ProtectedRoute>
+          <PlaceholderPage title="Reports" />
+        </ProtectedRoute>
+      } />
+      
+      {/* Logout route */}
+      <Route path="/logout" element={<Navigate to="/login" replace />} />
+      
+      {/* Default routes - Updated to redirect to login first, then dashboard if authenticated */}
+      <Route path="/" element={
+        isAuthenticated() ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
