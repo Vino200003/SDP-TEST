@@ -454,3 +454,140 @@ export const isUserAuthenticated = () => {
   const token = localStorage.getItem('token');
   return !!token; // Convert to boolean
 };
+
+/**
+ * Get user's order history
+ * @returns {Promise} - Response with user's order history
+ */
+export const getUserOrders = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    // Use the main orders endpoint that worked
+    const response = await fetch('http://localhost:5000/api/orders', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+    });
+    
+    if (!response.ok) {
+      // Check if it's a 404, which might mean the user has no orders yet
+      if (response.status === 404) {
+        // Return empty array instead of throwing error for no orders
+        return [];
+      }
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch order history');
+    }
+    
+    const data = await response.json();
+    console.log('Orders successfully retrieved from: http://localhost:5000/api/orders');
+    return Array.isArray(data) ? data : (data.orders || []);
+  } catch (error) {
+    console.error('API error fetching orders:', error);
+    // If there's an error, return an empty array instead of throwing
+    return [];
+  }
+};
+
+/**
+ * Get specific order details
+ * @param {number} orderId - The ID of the order to fetch details for
+ * @returns {Promise} - Response with order details
+ */
+export const getOrderDetails = async (orderId) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`/api/orders/${orderId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch order details');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API error fetching order details:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new order
+ * @param {Object} orderData - Order details
+ * @returns {Promise} - Response from the API
+ */
+export const createOrder = async (orderData) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(orderData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create order');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API error creating order:', error);
+    throw error;
+  }
+};
+
+/**
+ * Cancel an order (if it's still pending)
+ * @param {number} orderId - The ID of the order to cancel
+ * @returns {Promise} - Response from the API
+ */
+export const cancelOrder = async (orderId) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to cancel order');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API error canceling order:', error);
+    throw error;
+  }
+};

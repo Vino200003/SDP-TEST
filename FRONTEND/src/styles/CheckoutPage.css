@@ -501,6 +501,48 @@
   transform: translateY(-2px);
 }
 
+/* Success buttons */
+.success-buttons {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.back-to-home-btn,
+.view-orders-btn {
+  padding: 14px 25px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.back-to-home-btn {
+  background-color: #d4af37;
+  color: white;
+}
+
+.back-to-home-btn:hover {
+  background-color: #c19d2c;
+  transform: translateY(-2px);
+}
+
+.view-orders-btn {
+  background-color: #f8f9fa;
+  color: #343a40;
+  border: 1px solid #dee2e6;
+}
+
+.view-orders-btn:hover {
+  background-color: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
 /* Error message */
 .order-error {
   width: 100%;
@@ -577,6 +619,16 @@
   
   .payment-option label {
     font-size: 0.95rem;
+  }
+
+  .success-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .back-to-home-btn,
+  .view-orders-btn {
+    width: 100%;
   }
 }
 

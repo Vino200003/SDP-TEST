@@ -263,37 +263,67 @@ const CheckoutPage = () => {
     try {
       // Get user data from localStorage for contact info
       const userData = JSON.parse(localStorage.getItem('user')) || {};
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setOrderError('You must be logged in to place an order');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setIsSubmitting(false);
+        return;
+      }
       
       // Prepare order data
       const orderData = {
-        customer: {
-          firstName: userData.first_name || '',
-          lastName: userData.last_name || '',
-          email: userData.email || '',
-          phone: userData.phone_number || '',
-          address: deliveryMethod === 'delivery' ? formData.address : '',
-          city: deliveryMethod === 'delivery' ? formData.city : '',
-          zipCode: deliveryMethod === 'delivery' ? formData.zipCode : '',
-          deliveryNotes: formData.deliveryNotes
-        },
-        orderDetails: {
-          items: cart,
-          subtotal: subtotal,
-          serviceFee: serviceFee,
-          deliveryFee: deliveryFee,
-          total: total,
-          deliveryMethod: deliveryMethod,
-          pickupDate: deliveryMethod === 'pickup' ? formData.pickupDate : '',
-          pickupTime: deliveryMethod === 'pickup' ? formData.pickupTime : ''
-        },
-        paymentMethod: formData.paymentMethod
+        user_id: userData.id,
+        items: cart.map(item => ({
+          menu_id: item.menu_id || item.id, // Use menu_id or fallback to id
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name || item.menu_name, // Include item name for reference
+          special_instructions: item.special_instructions || ''
+        })),
+        order_type: deliveryMethod === 'delivery' ? 'Delivery' : 'Takeaway',
+        order_status: 'Pending',
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        service_fee: parseFloat(serviceFee.toFixed(2)),
+        delivery_fee: parseFloat(deliveryFee.toFixed(2)),
+        total_amount: parseFloat(total.toFixed(2)),
+        payment_method: formData.paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash',
+        delivery_address: deliveryMethod === 'delivery' ? 
+          `${formData.address}, ${formData.city}, ${formData.zipCode}` : '',
+        delivery_notes: formData.deliveryNotes || '',
+        pickup_time: deliveryMethod === 'pickup' ? 
+          `${formData.pickupDate} ${formData.pickupTime}` : null,
+        user_email: userData.email || '',
+        user_name: `${userData.first_name || ''} ${userData.last_name || ''}`.trim()
       };
       
-      // In a real application, you would send this data to your backend
       console.log('Placing order:', orderData);
       
-      // Simulate API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Check if all required item fields exist before submitting
+      const missingFields = orderData.items.filter(item => !item.menu_id);
+      if (missingFields.length > 0) {
+        throw new Error('Some items are missing required fields. Please refresh and try again.');
+      }
+      
+      // Send order to backend API
+      // Use an absolute URL to avoid path issues
+      const response = await fetch('http://localhost:5000/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(orderData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to place order');
+      }
+      
+      const data = await response.json();
+      console.log('Order placed successfully:', data);
       
       // Order successful
       setOrderSuccess(true);
@@ -310,7 +340,7 @@ const CheckoutPage = () => {
       
     } catch (error) {
       console.error('Order placement error:', error);
-      setOrderError('An error occurred while placing your order. Please try again.');
+      setOrderError(error.message || 'An error occurred while placing your order. Please try again.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
@@ -342,12 +372,20 @@ const CheckoutPage = () => {
             <p>Thank you for your order. Your order has been received and is being processed.</p>
             <p className="order-number">Order Reference: #{Math.floor(Math.random() * 1000000)}</p>
             <p>We've sent a confirmation email to <strong>{JSON.parse(localStorage.getItem('user'))?.email || 'your email'}</strong>.</p>
-            <button 
-              className="back-to-home-btn"
-              onClick={() => window.navigateTo ? window.navigateTo('/') : window.location.href = '/'}
-            >
-              Return to Home
-            </button>
+            <div className="success-buttons">
+              <button 
+                className="back-to-home-btn"
+                onClick={() => window.navigateTo ? window.navigateTo('/') : window.location.href = '/'}
+              >
+                Return to Home
+              </button>
+              <button 
+                className="view-orders-btn"
+                onClick={() => window.navigateTo ? window.navigateTo('/profile?tab=orders') : window.location.href = '/profile?tab=orders'}
+              >
+                View Your Orders
+              </button>
+            </div>
           </div>
         ) : (
           <div className="checkout-content-wrapper">

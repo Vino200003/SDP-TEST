@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
-import { getUserProfile, updateUserProfile, getUserReservations } from '../utils/api';
+import { getUserProfile, updateUserProfile, getUserReservations, getUserOrders } from '../utils/api';
 import '../styles/ProfilePage.css';
 
 const ProfilePage = () => {
@@ -81,6 +81,38 @@ const ProfilePage = () => {
       };
       
       fetchReservations();
+    }
+  }, [activeTab]);
+
+  // Fetch order history when the orders tab is active
+  const fetchOrderHistory = async () => {
+    try {
+      if (activeTab === 'orders') {
+        setIsLoading(true);
+        setSubmitError(''); // Clear any previous errors
+        
+        console.log('Fetching orders...');
+        const ordersData = await getUserOrders();
+        
+        console.log('Received orders:', ordersData);
+        setOrderHistory(Array.isArray(ordersData) ? ordersData : []);
+        
+        if (Array.isArray(ordersData) && ordersData.length === 0) {
+          console.log('No orders found for this user');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setOrderHistory([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update useEffect to call fetchOrderHistory when activeTab changes to 'orders'
+  useEffect(() => {
+    if (activeTab === 'orders') {
+      fetchOrderHistory();
     }
   }, [activeTab]);
   
@@ -446,7 +478,12 @@ const ProfilePage = () => {
             <div className="orders-tab-content">
               <h3>Order History</h3>
               
-              {orderHistory.length === 0 ? (
+              {isLoading ? (
+                <div className="loading-container" style={{ minHeight: '200px' }}>
+                  <div className="loading-spinner"></div>
+                  <p>Loading your orders...</p>
+                </div>
+              ) : orderHistory.length === 0 ? (
                 <div className="no-data-message">
                   <i className="fas fa-shopping-bag"></i>
                   <p>You haven't placed any orders yet.</p>
@@ -463,20 +500,35 @@ const ProfilePage = () => {
                   </div>
                   
                   {orderHistory.map(order => (
-                    <div key={order.id} className="order-item">
-                      <div className="order-id">#{order.id}</div>
-                      <div className="order-date">{formatDate(order.date)}</div>
-                      <div className="order-total">{formatPrice(order.total)}</div>
-                      <div className={`order-status status-${order.status.toLowerCase()}`}>
-                        {order.status}
+                    <div key={order.order_id} className="order-item">
+                      <div className="order-id">#{order.order_id}</div>
+                      <div className="order-date">{formatDate(order.created_at)}</div>
+                      <div className="order-total">{formatPrice(order.total_amount)}</div>
+                      <div className={`order-status status-${order.order_status.toLowerCase().replace(' ', '-')}`}>
+                        {order.order_status}
                       </div>
                       <div className="order-actions">
-                        <button className="view-order-details">
+                        <button 
+                          className="view-order-details"
+                          onClick={() => {
+                            // You can implement a modal to show order details
+                            alert(`
+                              Order Details:
+                              Order ID: ${order.order_id}
+                              Date: ${formatDate(order.created_at)}
+                              Status: ${order.order_status}
+                              Total: ${formatPrice(order.total_amount)}
+                              ${order.order_type === 'Delivery' ? `Delivery Address: ${order.delivery_address}` : ''}
+                            `);
+                          }}
+                        >
                           <i className="fas fa-eye"></i> View
                         </button>
-                        <button className="reorder-btn">
-                          <i className="fas fa-redo-alt"></i> Reorder
-                        </button>
+                        {order.order_status === 'Pending' && (
+                          <button className="reorder-btn">
+                            <i className="fas fa-redo-alt"></i> Cancel
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
