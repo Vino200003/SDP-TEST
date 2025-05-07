@@ -93,17 +93,27 @@ const MenuPage = () => {
   // Group menu items by category and subcategory for display
   const groupedMenuItems = filteredItems.reduce((acc, item) => {
     const category = item.category_name || 'Uncategorized';
-    const subcategory = item.subcategory_name || 'Other';
+    
+    // Only create subcategory if it exists, otherwise use null to indicate no subcategory
+    const subcategory = item.subcategory_name || null;
     
     if (!acc[category]) {
       acc[category] = {};
     }
     
-    if (!acc[category][subcategory]) {
-      acc[category][subcategory] = [];
+    if (subcategory === null) {
+      // Items without subcategory go directly under the category
+      if (!acc[category]['main']) {
+        acc[category]['main'] = [];
+      }
+      acc[category]['main'].push(item);
+    } else {
+      if (!acc[category][subcategory]) {
+        acc[category][subcategory] = [];
+      }
+      acc[category][subcategory].push(item);
     }
     
-    acc[category][subcategory].push(item);
     return acc;
   }, {});
 
@@ -173,17 +183,29 @@ const MenuPage = () => {
               <div key={category} className="menu-category-section">
                 <h2 className="category-title">{category}</h2>
                 
-                {Object.keys(groupedMenuItems[category]).map(subcategory => (
-                  <div key={`${category}-${subcategory}`} className="menu-subcategory-section">
-                    <h3 className="subcategory-title">{subcategory}</h3>
-                    
-                    <div className="menu-items-grid">
-                      {groupedMenuItems[category][subcategory].map(item => (
-                        <MenuItem key={item.menu_id} item={item} />
-                      ))}
-                    </div>
+                {/* Display main items (without subcategory) first */}
+                {groupedMenuItems[category]['main'] && (
+                  <div className="menu-items-grid">
+                    {groupedMenuItems[category]['main'].map(item => (
+                      <MenuItem key={item.menu_id} item={item} />
+                    ))}
                   </div>
-                ))}
+                )}
+                
+                {/* Then display items with subcategories */}
+                {Object.keys(groupedMenuItems[category])
+                  .filter(subcategory => subcategory !== 'main')
+                  .map(subcategory => (
+                    <div key={`${category}-${subcategory}`} className="menu-subcategory-section">
+                      <h3 className="subcategory-title">{subcategory}</h3>
+                      
+                      <div className="menu-items-grid">
+                        {groupedMenuItems[category][subcategory].map(item => (
+                          <MenuItem key={item.menu_id} item={item} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
               </div>
             ))
           )}
