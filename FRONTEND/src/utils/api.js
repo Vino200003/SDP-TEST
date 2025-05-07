@@ -573,6 +573,17 @@ export const updateOrder = async (orderId, orderData) => {
       throw new Error('Authentication required');
     }
     
+    // Ensure we're sending all required fields for the update
+    const dataToSend = {
+      items: orderData.items,
+      total_amount: orderData.total_amount,
+      order_type: orderData.order_type,
+      // Make sure delivery address is included for delivery orders
+      ...(orderData.order_type === 'Delivery' && { delivery_address: orderData.delivery_address }),
+      // Include special instructions if provided
+      ...(orderData.special_instructions && { special_instructions: orderData.special_instructions })
+    };
+    
     // Use the standardized API_URL pattern
     const response = await fetch(`${API_URL}/orders/${orderId}`, {
       method: 'PUT',
@@ -580,7 +591,7 @@ export const updateOrder = async (orderId, orderData) => {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(dataToSend),
       credentials: 'include'
     });
     

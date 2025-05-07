@@ -569,3 +569,15 @@
   font-size: 0.9rem;
   color: #6c757d;
 }
+
+/* For long delivery addresses */
+.delivery-section p {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.delivery-section p strong {
+  width: 140px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}

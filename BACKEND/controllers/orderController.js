@@ -120,10 +120,15 @@ exports.getOrderById = (req, res) => {
 
 // Create a new order
 exports.createOrder = (req, res) => {
-  const { user_id, order_type, items, delivery_person_id = null } = req.body;
+  const { user_id, order_type, items, delivery_person_id = null, delivery_address = null } = req.body;
   
   if (!user_id || !order_type || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ message: 'Invalid order data. Required fields: user_id, order_type, items (array)' });
+  }
+  
+  // Validate delivery address for delivery orders
+  if (order_type === 'Delivery' && !delivery_address) {
+    return res.status(400).json({ message: 'Delivery address is required for delivery orders' });
   }
   
   // Extract menu IDs to validate
@@ -173,7 +178,8 @@ exports.createOrder = (req, res) => {
         user_id,
         order_type,
         total_amount,
-        delivery_person_id: delivery_person_id
+        delivery_person_id: delivery_person_id,
+        delivery_address: order_type === 'Delivery' ? delivery_address : '' // Ensure delivery address is saved for delivery orders
       };
       
       db.query('INSERT INTO orders SET ?', orderData, (orderErr, orderResult) => {
@@ -315,12 +321,19 @@ exports.updateOrder = (req, res) => {
       
       const currentOrder = orderResults[0];
       
+      // Validate delivery address for delivery orders
+      if (order_type === 'Delivery' && !delivery_address && !currentOrder.delivery_address) {
+        return db.rollback(() => {
+          res.status(400).json({ message: 'Delivery address is required for delivery orders' });
+        });
+      }
+      
       // Build update object with only provided fields
       const updateData = {};
       if (user_id) updateData.user_id = user_id;
       if (order_type) updateData.order_type = order_type;
       if (delivery_person_id !== undefined) updateData.delivery_person_id = delivery_person_id;
-      if (delivery_address) updateData.delivery_address = delivery_address;
+      if (delivery_address !== undefined) updateData.delivery_address = delivery_address;
       if (special_instructions !== undefined) updateData.special_instructions = special_instructions;
       if (payment_method) updateData.payment_method = payment_method;
       if (payment_status) updateData.payment_status = payment_status;

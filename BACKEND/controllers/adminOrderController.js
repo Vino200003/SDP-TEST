@@ -363,13 +363,20 @@ exports.updateOrder = async (req, res) => {
         
         const currentOrder = orderResults[0];
         
+        // Validate delivery address for delivery orders
+        if (order_type === 'Delivery' && !delivery_address && !currentOrder.delivery_address) {
+          return db.rollback(() => {
+            res.status(400).json({ message: 'Delivery address is required for delivery orders' });
+          });
+        }
+        
         // Build update object with only provided fields
         const updateData = {};
         if (user_id) updateData.user_id = user_id;
         if (order_type) updateData.order_type = order_type;
         if (order_status) updateData.order_status = order_status;
         if (delivery_person_id !== undefined) updateData.delivery_person_id = delivery_person_id;
-        if (delivery_address) updateData.delivery_address = delivery_address;
+        if (delivery_address !== undefined) updateData.delivery_address = delivery_address;
         if (special_instructions !== undefined) updateData.special_instructions = special_instructions;
         if (payment_method) updateData.payment_method = payment_method;
         if (payment_status) updateData.payment_status = payment_status;

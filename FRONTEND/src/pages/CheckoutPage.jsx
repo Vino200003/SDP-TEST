@@ -331,6 +331,10 @@ const CheckoutPage = () => {
         return;
       }
       
+      // Get the formatted delivery address 
+      const deliveryAddressToUse = deliveryMethod === 'delivery' ? 
+        (isEditingAddress ? `${formData.address}, ${formData.city}, ${formData.zipCode}` : userProfile.address) : '';
+      
       // Prepare order data
       const orderData = {
         user_id: userData.id,
@@ -348,8 +352,7 @@ const CheckoutPage = () => {
         delivery_fee: parseFloat(deliveryFee.toFixed(2)),
         total_amount: parseFloat(total.toFixed(2)),
         payment_method: formData.paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash',
-        delivery_address: deliveryMethod === 'delivery' ? 
-          (isEditingAddress ? `${formData.address}, ${formData.city}, ${formData.zipCode}` : userProfile.address) : '',
+        delivery_address: deliveryAddressToUse, // Use the properly formatted address
         delivery_notes: formData.deliveryNotes || '',
         pickup_time: deliveryMethod === 'pickup' ? 
           `${formData.pickupDate} ${formData.pickupTime}` : null,
@@ -365,8 +368,12 @@ const CheckoutPage = () => {
         throw new Error('Some items are missing required fields. Please refresh and try again.');
       }
       
+      // Check if delivery address is provided for delivery orders
+      if (orderData.order_type === 'Delivery' && !orderData.delivery_address) {
+        throw new Error('Delivery address is required for delivery orders.');
+      }
+      
       // Send order to backend API
-      // Use an absolute URL to avoid path issues
       const response = await fetch('http://localhost:5000/api/orders', {
         method: 'POST',
         headers: {

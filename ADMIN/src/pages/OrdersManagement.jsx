@@ -496,10 +496,15 @@ function OrdersManagement() {
                   </table>
                 </div>
                 
-                {selectedOrder.order_type === 'Delivery' && selectedOrder.delivery_person_id && (
+                {selectedOrder.order_type === 'Delivery' && (
                   <div className="delivery-section">
                     <h3>Delivery Information</h3>
-                    <p><strong>Delivery Person ID:</strong> {selectedOrder.delivery_person_id}</p>
+                    {selectedOrder.delivery_person_id && (
+                      <p><strong>Delivery Person ID:</strong> {selectedOrder.delivery_person_id}</p>
+                    )}
+                    {selectedOrder.delivery_address && (
+                      <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
+                    )}
                   </div>
                 )}
                 

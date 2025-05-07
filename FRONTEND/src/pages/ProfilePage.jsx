@@ -7,7 +7,8 @@ import {
   getUserReservations, 
   getUserOrders, 
   getOrderDetails,
-  updateOrder
+  updateOrder,
+  getAllMenuItems
 } from '../utils/api';
 import '../styles/ProfilePage.css';
 
@@ -43,6 +44,15 @@ const ProfilePage = () => {
   const [isViewingOrderDetails, setIsViewingOrderDetails] = useState(false);
   const [isEditingOrder, setIsEditingOrder] = useState(false);
   const [editedItems, setEditedItems] = useState([]);
+  const [editedDeliveryAddress, setEditedDeliveryAddress] = useState('');
+  const [editedSpecialInstructions, setEditedSpecialInstructions] = useState('');
+  
+  // Add new state for menu items
+  const [menuItems, setMenuItems] = useState([]);
+  const [isAddingNewItem, setIsAddingNewItem] = useState(false);
+  const [selectedMenuItem, setSelectedMenuItem] = useState(null);
+  const [selectedMenuItemQuantity, setSelectedMenuItemQuantity] = useState(1);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
   
   // Fetch user data on component mount
   useEffect(() => {
@@ -278,14 +288,18 @@ const ProfilePage = () => {
           const orderDetails = await getOrderDetails(order.order_id);
           setSelectedOrder({
             ...order, 
-            items: orderDetails.items || []
+            items: orderDetails.items || [],
+            delivery_address: orderDetails.delivery_address || order.delivery_address || '',
+            special_instructions: orderDetails.special_instructions || order.special_instructions || ''
           });
         } catch (detailsError) {
           console.error('Error fetching detailed order items:', detailsError);
           // If we can't get details, still show what we have
           setSelectedOrder({
             ...order,
-            items: [] // Empty array as fallback
+            items: [], // Empty array as fallback
+            delivery_address: order.delivery_address || '',
+            special_instructions: order.special_instructions || ''
           });
         }
       } else {
@@ -312,6 +326,55 @@ const ProfilePage = () => {
   const handleEditOrder = () => {
     setIsEditingOrder(true);
     setEditedItems(selectedOrder.items.map(item => ({...item})));
+    setEditedDeliveryAddress(selectedOrder.delivery_address || '');
+    setEditedSpecialInstructions(selectedOrder.special_instructions || '');
+    
+    // Fetch menu items for adding new items
+    fetchMenuItems();
+  };
+  
+  // Add function to fetch menu items
+  const fetchMenuItems = async () => {
+    try {
+      setIsLoadingMenu(true);
+      const data = await getAllMenuItems();
+      setMenuItems(data);
+      setIsLoadingMenu(false);
+    } catch (err) {
+      console.error('Error fetching menu items:', err);
+      setIsLoadingMenu(false);
+    }
+  };
+  
+  // Add function to handle adding a new item to the order
+  const handleAddNewItem = () => {
+    setIsAddingNewItem(true);
+    setSelectedMenuItem(null);
+    setSelectedMenuItemQuantity(1);
+  };
+  
+  // Add function to confirm adding the selected item
+  const handleConfirmAddItem = () => {
+    if (!selectedMenuItem) return;
+    
+    const newItem = {
+      menu_id: selectedMenuItem.menu_id,
+      menu_name: selectedMenuItem.menu_name,
+      price: selectedMenuItem.price,
+      quantity: selectedMenuItemQuantity
+    };
+    
+    setEditedItems([...editedItems, newItem]);
+    setIsAddingNewItem(false);
+    setSelectedMenuItem(null);
+    setSelectedMenuItemQuantity(1);
+  };
+  
+  // Add function to cancel adding a new item
+  const handleCancelAddItem = () => {
+    setIsAddingNewItem(false);
+    setSelectedMenuItem(null);
+    setSelectedMenuItemQuantity(1);
   };
 
   // Add function to update item quantity
@@ -344,10 +407,9 @@ const ProfilePage = () => {
       const updatedOrderData = {
         items: editedItems,
         total_amount: newTotal,
-        // Preserve original order data
         order_type: selectedOrder.order_type,
-        delivery_address: selectedOrder.delivery_address,
-        special_instructions: selectedOrder.special_instructions
+        delivery_address: editedDeliveryAddress,
+        special_instructions: editedSpecialInstructions
       };
       
       // Call the API to update the order
@@ -358,7 +420,9 @@ const ProfilePage = () => {
       const updatedOrder = {
         ...selectedOrder,
         items: editedItems,
-        total_amount: newTotal
+        total_amount: newTotal,
+        delivery_address: editedDeliveryAddress,
+        special_instructions: editedSpecialInstructions
       };
       const updatedOrderHistory = orderHistory.map(order => 
         order.order_id === selectedOrder.order_id ? updatedOrder : order
@@ -694,13 +758,182 @@ const ProfilePage = () => {
                           <p><strong>Date:</strong> {formatDate(selectedOrder.created_at)}</p>
                           <p><strong>Status:</strong> <span className={`status-${selectedOrder.order_status.toLowerCase().replace(' ', '-')}`}>{selectedOrder.order_status}</span></p>
                           <p><strong>Type:</strong> {selectedOrder.order_type}</p>
+                          
+                          {/* Conditional rendering for delivery address */}
                           {selectedOrder.order_type === 'Delivery' && (
-                            <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
+                            isEditingOrder ? (
+                              <div className="form-group" style={{marginTop: '15px'}}>
+                                <label htmlFor="delivery-address"><strong>Delivery Address:</strong></label>
+                                <input
+                                  id="delivery-address"
+                                  type="text"
+                                  value={editedDeliveryAddress}
+                                  onChange={(e) => setEditedDeliveryAddress(e.target.value)}
+                                  placeholder="Enter delivery address"
+                                  className="form-control"
+                                />
+                              </div>
+                            ) : (
+                              <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address || 'Not provided'}</p>
+                            )
+                          )}
+                          
+                          {/* Add special instructions field */}
+                          {isEditingOrder ? (
+                            <div className="form-group" style={{marginTop: '15px'}}>
+                              <label htmlFor="special-instructions"><strong>Special Instructions:</strong></label>
+                              <textarea
+                                id="special-instructions"
+                                value={editedSpecialInstructions}
+                                onChange={(e) => setEditedSpecialInstructions(e.target.value)}
+                                placeholder="Enter any special instructions"
+                                className="form-control"
+                                rows="2"
+                              />
+                            </div>
+                          ) : (
+                            selectedOrder.special_instructions && (
+                              <p><strong>Special Instructions:</strong> {selectedOrder.special_instructions}</p>
+                            )
                           )}
                         </div>
                       </div>
                       
                       <h3>Order Items</h3>
+                      
+                      {isEditingOrder && (
+                        <div style={{marginBottom: '15px'}}>
+                          <button 
+                            className="add-item-btn" 
+                            onClick={handleAddNewItem}
+                            style={{
+                              background: '#d4af37',
+                              color: 'white',
+                              border: 'none',
+                              padding: '8px 15px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '0.9rem'
+                            }}
+                          >
+                            <i className="fas fa-plus"></i> Add New Item
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Add new item panel */}
+                      {isEditingOrder && isAddingNewItem && (
+                        <div className="add-item-panel" style={{
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          marginBottom: '20px',
+                          backgroundColor: '#f9f9f9'
+                        }}>
+                          <h4 style={{marginTop: '0', marginBottom: '15px'}}>Add New Item</h4>
+                          
+                          {isLoadingMenu ? (
+                            <div style={{textAlign: 'center', padding: '20px'}}>
+                              <div className="loading-spinner" style={{margin: '0 auto 10px'}}></div>
+                              <p>Loading menu items...</p>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="form-group" style={{marginBottom: '15px'}}>
+                                <label htmlFor="menu-item-select" style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
+                                  Select Menu Item:
+                                </label>
+                                <select 
+                                  id="menu-item-select"
+                                  value={selectedMenuItem ? selectedMenuItem.menu_id : ""}
+                                  onChange={(e) => {
+                                    const selected = menuItems.find(item => item.menu_id == e.target.value);
+                                    setSelectedMenuItem(selected || null);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '5px'
+                                  }}
+                                >
+                                  <option value="">-- Select an item --</option>
+                                  {menuItems.map(item => (
+                                    <option key={item.menu_id} value={item.menu_id}>
+                                      {item.menu_name} - LKR {formatPrice(item.price)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              
+                              {selectedMenuItem && (
+                                <div className="form-group" style={{marginBottom: '15px'}}>
+                                  <label htmlFor="quantity-input" style={{display: 'block', marginBottom: '5px', fontWeight: '500'}}>
+                                    Quantity:
+                                  </label>
+                                  <div style={{display: 'flex', alignItems: 'center'}}>
+                                    <button 
+                                      onClick={() => setSelectedMenuItemQuantity(prev => Math.max(1, prev - 1))}
+                                      style={{
+                                        width: '30px',
+                                        height: '30px',
+                                        background: '#f0f0f0',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '50%',
+                                        cursor: 'pointer'
+                                      }}
+                                    >-</button>
+                                    <span style={{margin: '0 15px', fontWeight: 'bold'}}>{selectedMenuItemQuantity}</span>
+                                    <button 
+                                      onClick={() => setSelectedMenuItemQuantity(prev => prev + 1)}
+                                      style={{
+                                        width: '30px',
+                                        height: '30px',
+                                        background: '#f0f0f0',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '50%',
+                                        cursor: 'pointer'
+                                      }}
+                                    >+</button>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <div style={{display: 'flex', justifyContent: 'space-between', marginTop: '15px'}}>
+                                <button 
+                                  onClick={handleCancelAddItem}
+                                  style={{
+                                    padding: '8px 15px',
+                                    background: '#f8f9fa',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                                <button 
+                                  onClick={handleConfirmAddItem}
+                                  disabled={!selectedMenuItem}
+                                  style={{
+                                    padding: '8px 15px',
+                                    background: selectedMenuItem ? '#d4af37' : '#cccccc',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: selectedMenuItem ? 'pointer' : 'not-allowed'
+                                  }}
+                                >
+                                  Add to Order
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                       
                       <div className="order-items-list">
                         <div className="order-item-header">
