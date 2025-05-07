@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { validateEmail, validatePassword } = require('../utils/validation');
+const config = require('../config/config');
 
 // Register a new user
 exports.registerUser = async (req, res) => {
@@ -352,4 +353,63 @@ exports.updateUserProfile = async (req, res) => {
     console.error('Server error in updateUserProfile:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
+};
+
+// Update login function if present
+exports.login = (req, res) => {
+  const { email, password } = req.body;
+
+  // Basic validation
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Please provide email and password' });
+  }
+
+  // Find user by email
+  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
+    if (err) {
+      console.error('Database error during login:', err);
+      return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+
+    if (results.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const user = results[0];
+
+    // We'll use direct comparison for the demo, but should use bcrypt in production
+    const isMatch = password === user.password;
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Create token payload
+    const payload = {
+      user: {
+        id: user.user_id,
+        email: user.email,
+        role: 'user'
+      }
+    };
+
+    // Sign token
+    jwt.sign(
+      payload,
+      config.jwtSecret,
+      { expiresIn: config.jwtExpiration },
+      (err, token) => {
+        if (err) throw err;
+        
+        // Return token and user info (excluding sensitive data)
+        const { password, ...userInfo } = user;
+        
+        res.json({
+          token,
+          user: userInfo,
+          message: 'Login successful'
+        });
+      }
+    );
+  });
 };

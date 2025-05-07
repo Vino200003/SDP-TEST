@@ -1,5 +1,5 @@
-// Base URL for API calls
-export const API_URL = 'http://localhost:5000'; // Change this to your backend URL
+// Make sure the API URL is set to the correct server
+export const API_URL = 'http://localhost:5000';
 
 // Other constants can be added here as needed
 export const ORDER_STATUSES = {

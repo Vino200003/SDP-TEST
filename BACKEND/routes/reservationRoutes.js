@@ -10,15 +10,15 @@ router.get('/available-tables', reservationController.getAvailableTablesForDateT
 // Create reservation - optional authentication
 router.post('/', reservationController.createReservation);
 
+// Allow getting user reservations without authentication when userId is provided in query
+router.get('/user', reservationController.getUserReservations);
+
 // Protected routes - require authentication
 router.get('/', auth, reservationController.getAllReservations);
-
-// Make sure this route comes before any routes with parameters (like '/:id')
-// to avoid parameter conflicts
-router.get('/user', auth, reservationController.getUserReservations);
-
+router.get('/stats', auth, reservationController.getReservationStats);
 router.get('/:id', auth, reservationController.getReservationById);
 router.put('/:id', auth, reservationController.updateReservation);
 router.delete('/:id', auth, reservationController.deleteReservation);
+router.patch('/:id/status', auth, reservationController.updateReservationStatus);
 
 module.exports = router;

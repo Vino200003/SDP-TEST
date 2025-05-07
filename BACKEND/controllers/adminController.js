@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { validateEmail } = require('../utils/validation');
+const config = require('../config/config');
 require('dotenv').config();
 
 // Login admin
@@ -283,6 +284,68 @@ exports.createAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error('Server error in createAdmin:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Validate inputs
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Please provide email and password' });
+    }
+    
+    // Check if the admin exists
+    db.query('SELECT * FROM admin WHERE email = ?', [email], async (err, results) => {
+      if (err) {
+        console.error('Database error during admin login:', err);
+        return res.status(500).json({ message: 'Server error', error: err.message });
+      }
+      
+      if (results.length === 0) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      const admin = results[0];
+      
+      // Simple password check (in a real app, you'd use bcrypt)
+      const isMatch = password === admin.password;
+      
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+      
+      // Create JWT payload
+      const payload = {
+        admin: {
+          id: admin.admin_id,
+          email: admin.email
+        }
+      };
+      
+      // Sign the token using our config
+      jwt.sign(
+        payload,
+        config.adminJwtSecret,
+        { expiresIn: config.adminJwtExpiration },
+        (err, token) => {
+          if (err) throw err;
+          
+          // Return the token and admin info (excluding password)
+          const { password, ...adminInfo } = admin;
+          
+          res.json({
+            token,
+            admin: adminInfo,
+            message: 'Login successful'
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Server error in admin login:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

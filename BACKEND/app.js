@@ -9,8 +9,12 @@ const reservationRoutes = require('./routes/reservationRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // Add admin routes
 const adminOrderRoutes = require('./routes/adminOrderRoutes'); // Add this line
+const healthRoutes = require('./routes/healthRoutes'); // Add health check route
 
 const app = express();
+
+// Enable CORS for all routes - very important for cross-domain requests
+app.use(cors());
 
 // Ensure CORS is correctly configured
 app.use(cors({
@@ -42,6 +46,7 @@ app.use('/api/reservations', reservationRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes); // Ensure admin routes are registered
 app.use('/api/admin/orders', adminOrderRoutes); // Add this line
+app.use('/api/health', healthRoutes); // Add health check route
 
 // Default route - add more logging to help with debugging
 app.get('/', (req, res) => {

@@ -1,0 +1,141 @@
+.server-status-notifier {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 350px;
+  z-index: 1000;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border-left: 4px solid #ff9800;
+}
+
+.server-status-notifier.minimized {
+  width: auto;
+  padding: 0;
+  border-radius: 50px;
+}
+
+.minimized-content {
+  display: flex;
+  align-items: center;
+  padding: 8px 15px;
+  cursor: pointer;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.server-status-icon {
+  margin-right: 5px;
+}
+
+.server-status-icon.error {
+  color: #f44336;
+}
+
+.server-status-icon.success {
+  color: #4caf50;
+}
+
+.full-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.notifier-header {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+}
+
+.status-indicator h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.notifier-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.notifier-actions button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+}
+
+.notifier-actions button:hover {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.notifier-body {
+  padding: 15px;
+}
+
+.notifier-body p {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: #555;
+}
+
+.technical-info {
+  font-family: monospace;
+  font-size: 12px !important;
+  background-color: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 15px !important;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.retry-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #2196f3;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.retry-btn:hover {
+  background-color: #1976d2;
+}
+
+@media (max-width: 480px) {
+  .server-status-notifier {
+    width: calc(100% - 40px);
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+  }
+}

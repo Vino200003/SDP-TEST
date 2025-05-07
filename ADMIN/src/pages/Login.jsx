@@ -1,7 +1,6 @@
- import { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
-import { login, isAuthenticated } from '../services/authService';
-import logo from '../assets/logo.png';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config/constants';
 import '../styles/Login.css';
 
 function Login() {
@@ -11,36 +10,41 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // If user is already logged in, redirect to dashboard
-  if (isAuthenticated()) {
-    return <Navigate to="/dashboard" />;
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Validate input
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required');
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Call login service
-      const result = await login(email, password);
-      
-      if (result.success) {
-        // Redirect to dashboard on successful login
-        navigate('/dashboard');
-      } else {
-        setError(result.error || 'Invalid credentials. Please try again.');
+      const response = await fetch(`${API_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
       }
-    } catch (err) {
-      setError('An error occurred during login. Please try again.');
-      console.error('Login error:', err);
+
+      console.log('Login successful, received token:', data.token.substring(0, 20) + '...');
+      
+      // Save admin info and token to localStorage
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('adminInfo', JSON.stringify(data.admin));
+      
+      // Verify token was saved
+      const savedToken = localStorage.getItem('adminToken');
+      console.log('Verified token in localStorage:', savedToken ? 'Token present' : 'Token missing');
+      
+      // Redirect to dashboard
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'An error occurred during login');
     } finally {
       setLoading(false);
     }
@@ -48,15 +52,15 @@ function Login() {
 
   return (
     <div className="login-container">
-      <div className="login-card">
+      <div className="login-form-container">
         <div className="login-header">
-          <img src={logo} alt="Restaurant Logo" className="login-logo" />
           <h1>Restaurant Admin</h1>
+          <p>Sign in to access your dashboard</p>
         </div>
         
+        {error && <div className="error-message">{error}</div>}
+        
         <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="login-error">{error}</div>}
-          
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
@@ -64,9 +68,8 @@ function Login() {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
               placeholder="Enter your email"
-              disabled={loading}
-              autoComplete="email"
             />
           </div>
           
@@ -77,9 +80,8 @@ function Login() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              required
               placeholder="Enter your password"
-              disabled={loading}
-              autoComplete="current-password"
             />
           </div>
           
@@ -88,12 +90,12 @@ function Login() {
             className="login-button"
             disabled={loading}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
         
         <div className="login-footer">
-          <a href="#forgot-password">Forgot Password?</a>
+          <p>© 2023 Restaurant Admin Panel</p>
         </div>
       </div>
     </div>

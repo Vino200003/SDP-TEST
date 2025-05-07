@@ -124,3 +124,106 @@ exports.tableExists = (tableNo) => {
     });
   });
 };
+
+/**
+ * Get reservations with pagination and filters
+ * @param {Object} options - Query options
+ * @param {number} options.page - Page number
+ * @param {number} options.limit - Items per page
+ * @param {string} options.status - Reservation status filter
+ * @param {Date} options.startDate - Start date filter
+ * @param {Date} options.endDate - End date filter
+ * @returns {Promise<Object>} - Reservations and pagination info
+ */
+exports.getReservationsWithFilters = (options = {}) => {
+  return new Promise((resolve, reject) => {
+    // Default options
+    const page = options.page || 1;
+    const limit = options.limit || 10;
+    const offset = (page - 1) * limit;
+    
+    // Build query conditions
+    let conditions = [];
+    let params = [];
+    
+    // Status filter
+    if (options.status) {
+      conditions.push('r.status = ?');
+      params.push(options.status);
+    }
+    
+    // Date range filter
+    if (options.startDate && options.endDate) {
+      conditions.push('DATE(r.date_time) BETWEEN ? AND ?');
+      params.push(
+        options.startDate.toISOString().split('T')[0],
+        options.endDate.toISOString().split('T')[0]
+      );
+    } else if (options.startDate) {
+      conditions.push('DATE(r.date_time) >= ?');
+      params.push(options.startDate.toISOString().split('T')[0]);
+    } else if (options.endDate) {
+      conditions.push('DATE(r.date_time) <= ?');
+      params.push(options.endDate.toISOString().split('T')[0]);
+    }
+    
+    // Combine conditions
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    // Get total count first
+    const countQuery = `
+      SELECT COUNT(*) AS total 
+      FROM reservations r
+      ${whereClause}
+    `;
+    
+    db.query(countQuery, params, (countErr, countResults) => {
+      if (countErr) {
+        reject(countErr);
+        return;
+      }
+      
+      const total = countResults[0].total;
+      const pages = Math.ceil(total / limit);
+      
+      // Get paginated results
+      const query = `
+        SELECT r.*, u.first_name, u.last_name, u.email, u.phone_number, t.capacity
+        FROM reservations r
+        LEFT JOIN users u ON r.user_id = u.user_id
+        LEFT JOIN tables t ON r.table_no = t.table_no
+        ${whereClause}
+        ORDER BY r.date_time DESC
+        LIMIT ? OFFSET ?
+      `;
+      
+      // Add pagination params
+      const fullParams = [...params, limit, offset];
+      
+      db.query(query, fullParams, (err, results) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        // Add customer_name field for frontend consistency
+        const reservations = results.map(reservation => {
+          if (reservation.first_name || reservation.last_name) {
+            reservation.customer_name = `${reservation.first_name || ''} ${reservation.last_name || ''}`.trim();
+          }
+          return reservation;
+        });
+        
+        resolve({
+          reservations,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages
+          }
+        });
+      });
+    });
+  });
+};

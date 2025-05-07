@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
-import { getAllReservations, updateReservationStatus, getReservationStats } from '../services/reservationService';
+import { 
+  getAllReservations, 
+  updateReservationStatus, 
+  getReservationStats,
+  checkServerConnection
+} from '../services/reservationService';
+import { serverStatus } from '../utils/mockData';
 import '../styles/ReservationManagement.css';
 
 function ReservationManagement() {
@@ -11,6 +17,7 @@ function ReservationManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isServerDown, setIsServerDown] = useState(false);  // Initialize as false to never show notification
   const [reservationStats, setReservationStats] = useState({
     total: 0,
     upcoming: 0,
@@ -24,12 +31,14 @@ function ReservationManagement() {
     pages: 1
   });
 
-  // Filter states - removed dateRange
+  // Filter states
   const [filters, setFilters] = useState({
     status: '',
     searchTerm: '',
     page: 1,
-    limit: 10
+    limit: 10,
+    startDate: '',
+    endDate: ''
   });
 
   // Simple notification function
@@ -44,26 +53,38 @@ function ReservationManagement() {
     fetchReservationStats();
   }, []);
 
-  // Fetch reservations when filters change - removed dateRange dependencies
+  // Fetch reservations when filters change
   useEffect(() => {
     fetchReservations();
-  }, [filters.page, filters.limit, filters.status]);
+  }, [filters.page, filters.limit, filters.status, filters.startDate, filters.endDate]);
+
+  // Update server status state when the status changes
+  useEffect(() => {
+    // Comment out or remove the line that updates the server status
+    // setIsServerDown(!serverStatus.isAvailable);
+  }, [/* serverStatus.isAvailable */]);
 
   const fetchReservations = async () => {
     setIsLoading(true);
     try {
-      // Removed startDate and endDate parameters
       console.log('Fetching reservations with filters:', {
         page: filters.page,
         limit: filters.limit,
-        status: filters.status
+        status: filters.status,
+        startDate: filters.startDate,
+        endDate: filters.endDate
       });
       
       const data = await getAllReservations({
         page: filters.page,
         limit: filters.limit,
-        status: filters.status
+        status: filters.status,
+        startDate: filters.startDate,
+        endDate: filters.endDate
       });
+      
+      // Update server status based on if we got mock data or real data
+      setIsServerDown(!serverStatus.isAvailable);
       
       if (data.reservations) {
         setReservations(data.reservations);
@@ -73,8 +94,9 @@ function ReservationManagement() {
           setPagination(data.pagination);
         }
       } else {
-        setReservations(data);
-        setFilteredReservations(data);
+        // If the API returns an array instead of an object with pagination
+        setReservations(Array.isArray(data) ? data : []);
+        setFilteredReservations(Array.isArray(data) ? data : []);
       }
     } catch (error) {
       notify(`Error fetching reservations: ${error.message}`, 'error');
@@ -85,8 +107,10 @@ function ReservationManagement() {
 
   const fetchReservationStats = async () => {
     try {
-      // Removed startDate and endDate parameters
-      const data = await getReservationStats();
+      const data = await getReservationStats(filters.startDate, filters.endDate);
+      
+      // Update server status based on result
+      setIsServerDown(!serverStatus.isAvailable);
       
       setReservationStats({
         total: data.total_reservations || 0,
@@ -105,6 +129,22 @@ function ReservationManagement() {
     }
   };
 
+  // Handle retry connection button from the notifier
+  const handleRetryConnection = async () => {
+    console.log('Retrying server connection...');
+    const isAvailable = await checkServerConnection();
+    setIsServerDown(!isAvailable);
+    
+    if (isAvailable) {
+      // Refresh data with real data from server
+      await fetchReservations();
+      await fetchReservationStats();
+      notify('Server connection restored! Using real data now.', 'success');
+    } else {
+      notify('Server is still unavailable. Continuing with mock data.', 'warning');
+    }
+  };
+
   // Apply search filter locally
   useEffect(() => {
     if (filters.searchTerm) {
@@ -117,9 +157,10 @@ function ReservationManagement() {
   const applySearchFilter = () => {
     const searchLower = filters.searchTerm.toLowerCase();
     const result = reservations.filter(reservation => {
-      // Search by reservation ID
-      if (reservation.reservation_id && 
-          reservation.reservation_id.toString().toLowerCase().includes(searchLower)) {
+      // Search by reservation ID (reserve_id is the field from the backend)
+      if ((reservation.reserve_id || reservation.reservation_id) && 
+          (reservation.reserve_id?.toString().toLowerCase().includes(searchLower) || 
+           reservation.reservation_id?.toString().toLowerCase().includes(searchLower))) {
         return true;
       }
       
@@ -129,19 +170,25 @@ function ReservationManagement() {
         return true;
       }
       
-      // Search by customer name if available
+      // Search by customer name
       if (reservation.customer_name && 
           reservation.customer_name.toLowerCase().includes(searchLower)) {
         return true;
       }
       
-      // Search by email if available
+      // Search by first_name or last_name
+      if ((reservation.first_name && reservation.first_name.toLowerCase().includes(searchLower)) ||
+          (reservation.last_name && reservation.last_name.toLowerCase().includes(searchLower))) {
+        return true;
+      }
+      
+      // Search by email
       if (reservation.email && 
           reservation.email.toLowerCase().includes(searchLower)) {
         return true;
       }
       
-      // Search by phone number if available
+      // Search by phone number
       if (reservation.phone_number && 
           reservation.phone_number.toLowerCase().includes(searchLower)) {
         return true;
@@ -162,7 +209,16 @@ function ReservationManagement() {
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     
-    // Removed date handling condition
+    setFilters({
+      ...filters,
+      [name]: value,
+      // Reset to page 1 when changing filters (except when changing the page itself)
+      page: name === 'page' ? value : 1
+    });
+  };
+
+  const handleDateFilterChange = (e) => {
+    const { name, value } = e.target;
     setFilters({
       ...filters,
       [name]: value,
@@ -175,7 +231,9 @@ function ReservationManagement() {
       status: '',
       searchTerm: '',
       page: 1,
-      limit: 10
+      limit: 10,
+      startDate: '',
+      endDate: ''
     });
   };
 
@@ -190,7 +248,7 @@ function ReservationManagement() {
       
       // Update local state
       const updatedReservations = reservations.map(reservation => 
-        reservation.reservation_id === reservationId 
+        (reservation.reserve_id === reservationId || reservation.reservation_id === reservationId)
           ? { ...reservation, status: newStatus } 
           : reservation
       );
@@ -201,7 +259,8 @@ function ReservationManagement() {
       ));
       
       // If we're viewing this reservation in the modal, update it there too
-      if (selectedReservation && selectedReservation.reservation_id === reservationId) {
+      if (selectedReservation && (selectedReservation.reserve_id === reservationId || 
+                                selectedReservation.reservation_id === reservationId)) {
         setSelectedReservation({ ...selectedReservation, status: newStatus });
       }
       
@@ -253,6 +312,8 @@ function ReservationManagement() {
       <main className="dashboard-content">
         <Header title="Table Reservations" />
         
+        {/* Server Status Notifier - disabled for this page */}
+        
         <div className="reservations-overview">
           <div className="reservation-stat-card upcoming">
             <h3>Upcoming</h3>
@@ -275,7 +336,6 @@ function ReservationManagement() {
         <div className="filters-section">
           <div className="search-bar">
             <input
-              type="text"
               name="searchTerm"
               value={filters.searchTerm}
               onChange={(e) => handleFilterChange(e)}
@@ -296,7 +356,24 @@ function ReservationManagement() {
               <option value="No-Show">No-Show</option>
             </select>
             
-            {/* Removed date filters section */}
+            {/* Date filters */}
+            <div className="date-filters">
+              <input
+                type="date"
+                name="startDate"
+                value={filters.startDate}
+                onChange={handleDateFilterChange}
+                placeholder="Start Date"
+              />
+              <span>to</span>
+              <input
+                type="date"
+                name="endDate"
+                value={filters.endDate}
+                onChange={handleDateFilterChange}
+                placeholder="End Date"
+              />
+            </div>
             
             <button className="reset-filters-btn" onClick={resetFilters}>
               Reset Filters
@@ -323,15 +400,20 @@ function ReservationManagement() {
               <tbody>
                 {filteredReservations.length > 0 ? (
                   filteredReservations.map((reservation) => (
-                    <tr key={reservation.reservation_id}>
-                      <td>{reservation.reservation_id}</td>
-                      <td>{reservation.customer_name || `User ${reservation.user_id}` || 'Guest'}</td>
+                    <tr key={reservation.reserve_id || reservation.reservation_id}>
+                      <td>{reservation.reserve_id || reservation.reservation_id}</td>
+                      <td>
+                        {reservation.customer_name || 
+                         (reservation.first_name || reservation.last_name ? 
+                          `${reservation.first_name || ''} ${reservation.last_name || ''}`.trim() : 
+                          `User ${reservation.user_id}` || 'Guest')}
+                      </td>
                       <td>Table {reservation.table_no}</td>
                       <td>{formatDate(reservation.date_time)}</td>
                       <td>{reservation.guests || reservation.capacity || 'N/A'}</td>
                       <td>
-                        <span className={`status-badge ${getStatusClass(reservation.status)}`}>
-                          {reservation.status}
+                        <span className={`status-badge ${getStatusClass(reservation.status || 'Confirmed')}`}>
+                          {reservation.status || 'Confirmed'}
                         </span>
                       </td>
                       <td>
@@ -345,8 +427,11 @@ function ReservationManagement() {
                           
                           <select 
                             className="status-update-select"
-                            value={reservation.status}
-                            onChange={(e) => handleUpdateStatus(reservation.reservation_id, e.target.value)}
+                            value={reservation.status || 'Confirmed'}
+                            onChange={(e) => handleUpdateStatus(
+                              reservation.reserve_id || reservation.reservation_id, 
+                              e.target.value
+                            )}
                           >
                             <option value="Confirmed">Confirmed</option>
                             <option value="Completed">Completed</option>
@@ -392,7 +477,7 @@ function ReservationManagement() {
           <div className="modal-overlay">
             <div className="modal-content reservation-details-modal">
               <div className="modal-header">
-                <h2>Reservation #{selectedReservation.reservation_id} Details</h2>
+                <h2>Reservation #{selectedReservation.reserve_id || selectedReservation.reservation_id} Details</h2>
                 <button 
                   className="close-modal-btn"
                   onClick={() => setIsDetailsModalOpen(false)}
@@ -405,7 +490,7 @@ function ReservationManagement() {
                 <div className="reservation-info-section">
                   <div className="reservation-info-group">
                     <h3>Reservation Information</h3>
-                    <p><strong>Status:</strong> {selectedReservation.status}</p>
+                    <p><strong>Status:</strong> {selectedReservation.status || 'Confirmed'}</p>
                     <p><strong>Date & Time:</strong> {formatDate(selectedReservation.date_time)}</p>
                     <p><strong>Table Number:</strong> {selectedReservation.table_no}</p>
                     <p><strong>Guests:</strong> {selectedReservation.guests || selectedReservation.capacity || 'N/A'}</p>
@@ -414,7 +499,12 @@ function ReservationManagement() {
                   
                   <div className="reservation-info-group">
                     <h3>Customer Information</h3>
-                    <p><strong>Name:</strong> {selectedReservation.customer_name || 'N/A'}</p>
+                    <p><strong>Name:</strong> 
+                      {selectedReservation.customer_name || 
+                       (selectedReservation.first_name || selectedReservation.last_name ? 
+                        `${selectedReservation.first_name || ''} ${selectedReservation.last_name || ''}`.trim() : 
+                        'N/A')}
+                    </p>
                     <p><strong>User ID:</strong> {selectedReservation.user_id || 'Guest'}</p>
                     <p><strong>Email:</strong> {selectedReservation.email || 'N/A'}</p>
                     <p><strong>Phone:</strong> {selectedReservation.phone_number || 'N/A'}</p>
@@ -430,9 +520,12 @@ function ReservationManagement() {
                 
                 <div className="reservation-actions-footer">
                   <select 
-                    value={selectedReservation.status}
+                    value={selectedReservation.status || 'Confirmed'}
                     onChange={(e) => {
-                      handleUpdateStatus(selectedReservation.reservation_id, e.target.value);
+                      handleUpdateStatus(
+                        selectedReservation.reserve_id || selectedReservation.reservation_id, 
+                        e.target.value
+                      );
                       setSelectedReservation({...selectedReservation, status: e.target.value});
                     }}
                   >

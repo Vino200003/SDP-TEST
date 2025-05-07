@@ -6,25 +6,126 @@ const jwt = require('jsonwebtoken');
  * Get all reservations (admin only)
  */
 exports.getAllReservations = (req, res) => {
-  const query = `
-    SELECT r.*, u.first_name, u.last_name, u.email, u.phone_number, t.capacity
-    FROM reservations r
-    LEFT JOIN users u ON r.user_id = u.user_id
-    LEFT JOIN tables t ON r.table_no = t.table_no
-    ORDER BY r.date_time DESC
-  `;
-  
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching reservations:', err);
-      return res.status(500).json({ 
-        message: 'Error fetching reservations', 
-        error: err.message 
-      });
+  try {
+    // Extract query parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    
+    // Build conditions for filtering
+    let conditions = [];
+    let params = [];
+    
+    // Status filter
+    if (req.query.status) {
+      conditions.push('r.status = ?');
+      params.push(req.query.status);
     }
     
-    res.json(results);
-  });
+    // Date range filter
+    if (req.query.startDate && req.query.endDate) {
+      conditions.push('DATE(r.date_time) BETWEEN ? AND ?');
+      params.push(req.query.startDate, req.query.endDate);
+    } else if (req.query.startDate) {
+      conditions.push('DATE(r.date_time) >= ?');
+      params.push(req.query.startDate);
+    } else if (req.query.endDate) {
+      conditions.push('DATE(r.date_time) <= ?');
+      params.push(req.query.endDate);
+    }
+    
+    // Combine conditions
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    // Log the request details for debugging
+    console.log(`Getting reservations with filters: page=${page}, limit=${limit}, conditions=`, conditions);
+    
+    // First get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total 
+      FROM reservations r 
+      ${whereClause}
+    `;
+    
+    db.query(countQuery, params, (countErr, countResult) => {
+      if (countErr) {
+        console.error('Error counting reservations:', countErr);
+        return res.status(500).json({ 
+          message: 'Error fetching reservations count', 
+          error: countErr.message 
+        });
+      }
+      
+      const total = countResult[0].total;
+      const pages = Math.ceil(total / limit);
+      
+      // If there are no results, return empty array
+      if (total === 0) {
+        return res.json({
+          reservations: [],
+          pagination: {
+            page,
+            limit,
+            total: 0,
+            pages: 0
+          }
+        });
+      }
+      
+      // Then get the actual data with pagination
+      const query = `
+        SELECT r.*, u.first_name, u.last_name, u.email, u.phone_number, t.capacity
+        FROM reservations r
+        LEFT JOIN users u ON r.user_id = u.user_id
+        LEFT JOIN tables t ON r.table_no = t.table_no
+        ${whereClause}
+        ORDER BY r.date_time DESC
+        LIMIT ? OFFSET ?
+      `;
+      
+      // Add pagination params
+      const queryParams = [...params, limit, offset];
+      
+      db.query(query, queryParams, (err, results) => {
+        if (err) {
+          console.error('Error fetching reservations:', err);
+          return res.status(500).json({ 
+            message: 'Error fetching reservations', 
+            error: err.message 
+          });
+        }
+        
+        // Add customer_name field for frontend consistency
+        const reservations = results.map(reservation => {
+          if (reservation.first_name || reservation.last_name) {
+            reservation.customer_name = `${reservation.first_name || ''} ${reservation.last_name || ''}`.trim();
+          }
+          // Ensure status is defined
+          if (!reservation.status) {
+            reservation.status = 'Confirmed';
+          }
+          return reservation;
+        });
+        
+        // Return the data with pagination info
+        res.json({
+          reservations: reservations,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages
+          }
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Server error in getAllReservations:', error);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
 };
 
 /**
@@ -394,5 +495,221 @@ exports.getAvailableTablesForDateTime = async (req, res) => {
   } catch (error) {
     console.error('Server error in getAvailableTablesForDateTime:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+/**
+ * Get all reservations for admin (with pagination and filters)
+ */
+exports.getAdminReservations = async (req, res) => {
+  try {
+    // Extract query parameters
+    const { page, limit, status, startDate, endDate } = req.query;
+    
+    // Prepare options object
+    const options = {
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 10
+    };
+    
+    // Add filters if provided
+    if (status) options.status = status;
+    if (startDate) options.startDate = new Date(startDate);
+    if (endDate) options.endDate = new Date(endDate);
+    
+    // Import the function from utils
+    const { getReservationsWithFilters } = require('../utils/reservationUtils');
+    
+    // Get reservations with filters
+    const result = await getReservationsWithFilters(options);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error in getAdminReservations:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch reservations', 
+      error: error.message 
+    });
+  }
+};
+
+/**
+ * Get reservation statistics for admin
+ */
+exports.getReservationStats = async (req, res) => {
+  try {
+    // Extract query parameters
+    const { startDate, endDate } = req.query;
+    
+    // Default counts in case of query errors
+    const defaultStats = {
+      total_reservations: 0,
+      upcoming_reservations: 0,
+      completed_reservations: 0,
+      cancelled_reservations: 0
+    };
+    
+    // Build date conditions
+    let dateCondition = '';
+    let params = [];
+    
+    if (startDate && endDate) {
+      dateCondition = 'WHERE DATE(date_time) BETWEEN ? AND ?';
+      params = [startDate, endDate];
+    } else if (startDate) {
+      dateCondition = 'WHERE DATE(date_time) >= ?';
+      params = [startDate];
+    } else if (endDate) {
+      dateCondition = 'WHERE DATE(date_time) <= ?';
+      params = [endDate];
+    }
+    
+    // Get total count
+    const totalQuery = `SELECT COUNT(*) as count FROM reservations ${dateCondition}`;
+    
+    // Make upcoming query more robust by checking that status column exists
+    const upcomingQuery = `
+      SELECT COUNT(*) as count 
+      FROM reservations 
+      WHERE (status = 'Confirmed' OR status IS NULL)
+      AND DATE(date_time) >= CURDATE()
+      ${dateCondition ? `AND ${dateCondition.substring(6)}` : ''}
+    `;
+    
+    // Make completed query more robust
+    const completedQuery = `
+      SELECT COUNT(*) as count 
+      FROM reservations 
+      WHERE status = 'Completed'
+      ${dateCondition ? `AND ${dateCondition.substring(6)}` : ''}
+    `;
+    
+    // Make cancelled query more robust
+    const cancelledQuery = `
+      SELECT COUNT(*) as count 
+      FROM reservations 
+      WHERE status IN ('Cancelled', 'No-Show')
+      ${dateCondition ? `AND ${dateCondition.substring(6)}` : ''}
+    `;
+    
+    // Execute queries with better error handling
+    try {
+      const totalResult = await new Promise((resolve, reject) => {
+        db.query(totalQuery, params, (err, results) => {
+          if (err) {
+            console.error('Error in total count query:', err);
+            resolve(0); // Use 0 as fallback
+          } else {
+            resolve(results[0].count);
+          }
+        });
+      });
+      
+      const upcomingResult = await new Promise((resolve, reject) => {
+        db.query(upcomingQuery, params, (err, results) => {
+          if (err) {
+            console.error('Error in upcoming count query:', err);
+            resolve(0); // Use 0 as fallback
+          } else {
+            resolve(results[0].count);
+          }
+        });
+      });
+      
+      const completedResult = await new Promise((resolve, reject) => {
+        db.query(completedQuery, params, (err, results) => {
+          if (err) {
+            console.error('Error in completed count query:', err);
+            resolve(0); // Use 0 as fallback
+          } else {
+            resolve(results[0].count);
+          }
+        });
+      });
+      
+      const cancelledResult = await new Promise((resolve, reject) => {
+        db.query(cancelledQuery, params, (err, results) => {
+          if (err) {
+            console.error('Error in cancelled count query:', err);
+            resolve(0); // Use 0 as fallback
+          } else {
+            resolve(results[0].count);
+          }
+        });
+      });
+      
+      res.json({
+        total_reservations: totalResult,
+        upcoming_reservations: upcomingResult,
+        completed_reservations: completedResult,
+        cancelled_reservations: cancelledResult
+      });
+    } catch (queryError) {
+      console.error('Error executing reservation stats queries:', queryError);
+      res.json(defaultStats);
+    }
+  } catch (error) {
+    console.error('Error in getReservationStats:', error);
+    // Return default stats instead of error to prevent frontend issues
+    res.json({
+      total_reservations: 0,
+      upcoming_reservations: 0,
+      completed_reservations: 0,
+      cancelled_reservations: 0,
+      error: "Could not retrieve stats"
+    });
+  }
+};
+
+/**
+ * Update reservation status (admin only)
+ */
+exports.updateReservationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
+    }
+    
+    // Validate status
+    const validStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
+      });
+    }
+    
+    // Update reservation status
+    db.query(
+      'UPDATE reservations SET status = ? WHERE reserve_id = ?',
+      [status, id],
+      (err, result) => {
+        if (err) {
+          console.error('Error updating reservation status:', err);
+          return res.status(500).json({ 
+            message: 'Error updating reservation status', 
+            error: err.message 
+          });
+        }
+        
+        if (result.affectedRows === 0) {
+          return res.status(404).json({ message: 'Reservation not found' });
+        }
+        
+        res.json({
+          message: 'Reservation status updated successfully',
+          reservation_id: id,
+          status
+        });
+      }
+    );
+  } catch (error) {
+    console.error('Error in updateReservationStatus:', error);
+    res.status(500).json({ 
+      message: 'Failed to update reservation status', 
+      error: error.message 
+    });
   }
 };
