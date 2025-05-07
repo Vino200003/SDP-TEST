@@ -4,12 +4,8 @@ import { getAllTables, getAvailableTables, createReservation } from '../utils/ap
 import '../styles/ReservationPage.css';
 
 const ReservationPage = () => {
-  // Form state
+  // Form state - remove contact information fields
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
     date: '',
     time: '',
     table: '',
@@ -26,21 +22,18 @@ const ReservationPage = () => {
   const [availableTables, setAvailableTables] = useState([]);
   const [allTables, setAllTables] = useState([]);
   const [isLoadingTables, setIsLoadingTables] = useState(false);
+  
+  // Add state for user data
+  const [userData, setUserData] = useState(null);
 
   // Add state for authentication modal
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Prefill user data if logged in
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user')) || {};
-    if (userData) {
-      setFormData(prevData => ({
-        ...prevData,
-        firstName: userData.first_name || '',
-        lastName: userData.last_name || '',
-        email: userData.email || '',
-        phone: userData.phone_number || '',
-      }));
+    const userProfile = JSON.parse(localStorage.getItem('user')) || {};
+    if (userProfile) {
+      setUserData(userProfile);
     }
     
     // Fetch all tables from the backend
@@ -48,7 +41,7 @@ const ReservationPage = () => {
       try {
         setIsLoadingTables(true);
         const tablesData = await getAllTables();
-        console.log("Fetched tables:", tablesData); // Add logging for debugging
+        console.log("Fetched tables:", tablesData); 
         setAllTables(tablesData);
         setIsLoadingTables(false);
       } catch (error) {
@@ -176,22 +169,7 @@ const ReservationPage = () => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Basic validations
-    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
-    
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-    
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) {
-      newErrors.phone = 'Phone number must be 10 digits';
-    }
-    
+    // Only validate reservation details
     if (!formData.date) newErrors.date = 'Date is required';
     if (!formData.time) newErrors.time = 'Time is required';
     if (!formData.table) newErrors.table = 'Table selection is required';
@@ -231,8 +209,7 @@ const ReservationPage = () => {
       reservationDate.setMinutes(parseInt(minutes, 10));
       
       // Get user ID if logged in
-      const userData = JSON.parse(localStorage.getItem('user')) || {};
-      const userId = userData.id || null;
+      const userId = userData?.id || null;
       
       const reservationData = {
         user_id: userId,
@@ -251,10 +228,6 @@ const ReservationPage = () => {
       
       // Reset form
       setFormData({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
         date: '',
         time: '',
         table: '',
@@ -319,7 +292,7 @@ const ReservationPage = () => {
             <h3>Reservation Confirmed!</h3>
             <p>Thank you for your reservation. We're looking forward to serving you.</p>
             <p className="confirmation-details">
-              A confirmation email has been sent to <strong>{formData.email}</strong>.
+              A confirmation email has been sent to <strong>{userData?.email}</strong>.
             </p>
             <button 
               className="back-to-home-btn"
@@ -339,63 +312,7 @@ const ReservationPage = () => {
             )}
             
             <form onSubmit={handleSubmit} className="reservation-form">
-              <div className="form-section">
-                <h3>Contact Information</h3>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="firstName">First Name</label>
-                    <input
-                      type="text"
-                      id="firstName"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className={errors.firstName ? 'error' : ''}
-                    />
-                    {errors.firstName && <span className="error-text">{errors.firstName}</span>}
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="lastName">Last Name</label>
-                    <input
-                      type="text"
-                      id="lastName"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className={errors.lastName ? 'error' : ''}
-                    />
-                    {errors.lastName && <span className="error-text">{errors.lastName}</span>}
-                  </div>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="email">Email</label>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className={errors.email ? 'error' : ''}
-                    />
-                    {errors.email && <span className="error-text">{errors.email}</span>}
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="phone">Phone Number</label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className={errors.phone ? 'error' : ''}
-                      placeholder="e.g., 1234567890"
-                    />
-                    {errors.phone && <span className="error-text">{errors.phone}</span>}
-                  </div>
-                </div>
-              </div>
+              {/* Contact information section removed */}
               
               <div className="form-section">
                 <h3>Reservation Details</h3>
