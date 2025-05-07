@@ -507,7 +507,7 @@ export const getOrderDetails = async (orderId) => {
       throw new Error('Authentication required');
     }
     
-    const response = await fetch(`/api/orders/${orderId}`, {
+    const response = await fetch(`${API_URL}/orders/${orderId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -556,6 +556,42 @@ export const createOrder = async (orderData) => {
     return await response.json();
   } catch (error) {
     console.error('API error creating order:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update an existing order
+ * @param {number} orderId - The ID of the order to update
+ * @param {Object} orderData - Updated order data including items
+ * @returns {Promise} - Response with updated order
+ */
+export const updateOrder = async (orderId, orderData) => {
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    // Use the standardized API_URL pattern
+    const response = await fetch(`${API_URL}/orders/${orderId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(orderData),
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update order');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API error updating order:', error);
     throw error;
   }
 };

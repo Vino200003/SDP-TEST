@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Footer from '../components/Footer';
-import { getUserProfile, updateUserProfile, getUserReservations, getUserOrders } from '../utils/api';
+import { 
+  getUserProfile, 
+  updateUserProfile, 
+  getUserReservations, 
+  getUserOrders, 
+  getOrderDetails,
+  updateOrder
+} from '../utils/api';
 import '../styles/ProfilePage.css';
 
 const ProfilePage = () => {
@@ -31,6 +38,12 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoadingReservations, setIsLoadingReservations] = useState(false);
   
+  // Add new state for order details modal
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isViewingOrderDetails, setIsViewingOrderDetails] = useState(false);
+  const [isEditingOrder, setIsEditingOrder] = useState(false);
+  const [editedItems, setEditedItems] = useState([]);
+  
   // Fetch user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
@@ -58,7 +71,7 @@ const ProfilePage = () => {
     
     fetchUserData();
   }, [navigate]);
-  
+
   // Fetch reservations when the reservations tab is active
   useEffect(() => {
     if (activeTab === 'reservations') {
@@ -66,10 +79,8 @@ const ProfilePage = () => {
         try {
           setIsLoadingReservations(true);
           setSubmitError(''); // Clear any previous errors
-          
           console.log('Fetching reservations...');
           const reservationsData = await getUserReservations();
-          
           console.log('Received reservations:', reservationsData);
           setReservations(reservationsData);
         } catch (err) {
@@ -79,7 +90,6 @@ const ProfilePage = () => {
           setIsLoadingReservations(false);
         }
       };
-      
       fetchReservations();
     }
   }, [activeTab]);
@@ -90,10 +100,8 @@ const ProfilePage = () => {
       if (activeTab === 'orders') {
         setIsLoading(true);
         setSubmitError(''); // Clear any previous errors
-        
         console.log('Fetching orders...');
         const ordersData = await getUserOrders();
-        
         console.log('Received orders:', ordersData);
         setOrderHistory(Array.isArray(ordersData) ? ordersData : []);
         
@@ -115,14 +123,14 @@ const ProfilePage = () => {
       fetchOrderHistory();
     }
   }, [activeTab]);
-  
+
   // Start editing profile
   const handleEditClick = () => {
     setIsEditing(true);
     setEditedData({...userData});
   };
   
-  // Cancel editing
+  // Cancel editing profile
   const handleCancelClick = () => {
     setIsEditing(false);
     setFormErrors({});
@@ -135,7 +143,6 @@ const ProfilePage = () => {
       ...editedData,
       [name]: value
     });
-    
     // Clear error when user types
     if (formErrors[name]) {
       setFormErrors({
@@ -144,43 +151,37 @@ const ProfilePage = () => {
       });
     }
   };
-  
+
   // Validate form before submission
   const validateForm = () => {
     const errors = {};
-    
     // First name validation
     if (!editedData.first_name?.trim()) {
       errors.first_name = 'First name is required';
     }
-    
     // Last name validation
     if (!editedData.last_name?.trim()) {
       errors.last_name = 'Last name is required';
     }
-    
     // Email validation
     if (!editedData.email?.trim()) {
       errors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(editedData.email)) {
       errors.email = 'Email is invalid';
     }
-    
     // Phone number validation
     if (!editedData.phone_number?.trim()) {
       errors.phone_number = 'Phone number is required';
     } else if (!/^\d{10}$/.test(editedData.phone_number.replace(/\D/g, ''))) {
       errors.phone_number = 'Phone number must be 10 digits';
     }
-    
     // Address validation is required but no specific format
     if (!editedData.address?.trim()) {
       errors.address = 'Address is required';
     }
-    
     return errors;
   };
-  
+
   // Handle save button click
   const handleSaveClick = async () => {
     // Validate form
@@ -189,10 +190,8 @@ const ProfilePage = () => {
       setFormErrors(errors);
       return;
     }
-    
     try {
       setSubmitError('');
-      
       // Call API to update profile
       const updatedData = await updateUserProfile(editedData);
       
@@ -213,28 +212,25 @@ const ProfilePage = () => {
       // Exit edit mode and show success message
       setIsEditing(false);
       setSubmitSuccess(true);
-      
       // Reset success message after a delay
       setTimeout(() => {
         setSubmitSuccess(false);
       }, 3000);
-      
       // Dispatch event to update navbar
       window.dispatchEvent(new Event('authChange'));
-      
     } catch (err) {
       console.error('Failed to update profile:', err);
       setSubmitError(err.message || 'Failed to update your profile. Please try again.');
     }
   };
-  
+
   // Format date for display (YYYY-MM-DD to user-friendly format)
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
   
-  // Format time for display
+  // Format time for display (YYYY-MM-DD to user-friendly format)
   const formatTime = (dateString) => {
     const options = { hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleTimeString(undefined, options);
@@ -244,7 +240,7 @@ const ProfilePage = () => {
   const formatPrice = (price) => {
     return `LKR ${parseFloat(price).toFixed(2)}`;
   };
-  
+
   // Add this function to handle reservation cancellation
   const handleCancelReservation = async (reservationId) => {
     if (window.confirm('Are you sure you want to cancel this reservation?')) {
@@ -271,7 +267,164 @@ const ProfilePage = () => {
       }
     }
   };
-  
+
+  // Add function to open order details modal
+  const handleViewOrderDetails = async (order) => {
+    try {
+      setIsLoading(true);
+      // If the order doesn't have items, fetch them
+      if (!order.items || order.items.length === 0) {
+        try {
+          const orderDetails = await getOrderDetails(order.order_id);
+          setSelectedOrder({
+            ...order, 
+            items: orderDetails.items || []
+          });
+        } catch (detailsError) {
+          console.error('Error fetching detailed order items:', detailsError);
+          // If we can't get details, still show what we have
+          setSelectedOrder({
+            ...order,
+            items: [] // Empty array as fallback
+          });
+        }
+      } else {
+        setSelectedOrder(order);
+      }
+      setIsViewingOrderDetails(true);
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error fetching order details:', err);
+      setSubmitError('Could not load order details. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  // Add function to close order details modal
+  const handleCloseOrderDetails = () => {
+    setIsViewingOrderDetails(false);
+    setIsEditingOrder(false);
+    setSelectedOrder(null);
+    setEditedItems([]);
+  };
+
+  // Add function to start editing an order
+  const handleEditOrder = () => {
+    setIsEditingOrder(true);
+    setEditedItems(selectedOrder.items.map(item => ({...item})));
+  };
+
+  // Add function to update item quantity
+  const handleUpdateItemQuantity = (itemIndex, newQuantity) => {
+    if (newQuantity < 1) return;
+    const updatedItems = [...editedItems];
+    updatedItems[itemIndex].quantity = newQuantity;
+    setEditedItems(updatedItems);
+  };
+
+  // Add function to remove item from order
+  const handleRemoveItem = (itemIndex) => {
+    const updatedItems = editedItems.filter((_, index) => index !== itemIndex);
+    setEditedItems(updatedItems);
+  };
+
+  // Add function to save edited order
+  const handleSaveOrder = async () => {
+    try {
+      setIsLoading(true);
+      setSubmitError('');
+      
+      // Calculate new total
+      const newTotal = editedItems.reduce(
+        (sum, item) => sum + (item.price * item.quantity), 
+        0
+      );
+      
+      // Prepare updated order data
+      const updatedOrderData = {
+        items: editedItems,
+        total_amount: newTotal,
+        // Preserve original order data
+        order_type: selectedOrder.order_type,
+        delivery_address: selectedOrder.delivery_address,
+        special_instructions: selectedOrder.special_instructions
+      };
+      
+      // Call the API to update the order
+      const response = await updateOrder(selectedOrder.order_id, updatedOrderData);
+      console.log('Order updated successfully:', response);
+      
+      // Update the order in the local state
+      const updatedOrder = {
+        ...selectedOrder,
+        items: editedItems,
+        total_amount: newTotal
+      };
+      const updatedOrderHistory = orderHistory.map(order => 
+        order.order_id === selectedOrder.order_id ? updatedOrder : order
+      );
+      
+      setOrderHistory(updatedOrderHistory);
+      setSelectedOrder(updatedOrder);
+      setIsEditingOrder(false);
+      setSubmitSuccess(true);
+      setTimeout(() => {
+        setSubmitSuccess(false);
+      }, 3000);
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error updating order:', err);
+      setSubmitError('Failed to update order. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  // Add function to cancel editing an order
+  const handleCancelEdit = () => {
+    setIsEditingOrder(false);
+    setEditedItems([]);
+  };
+
+  // Add function to cancel an order
+  const handleCancelOrder = async (orderId) => {
+    if (window.confirm('Are you sure you want to cancel this order?')) {
+      try {
+        setIsLoading(true);
+        setSubmitError('');
+        
+        // Mock API call - replace with actual API call when available
+        await new Promise(resolve => setTimeout(resolve, 800));
+        console.log('Cancelling order:', orderId);
+        
+        // Update the order status in the local state
+        const updatedOrderHistory = orderHistory.map(order => 
+          order.order_id === orderId 
+            ? {...order, order_status: 'Cancelled'} 
+            : order
+        );
+        setOrderHistory(updatedOrderHistory);
+        
+        // If the selected order is the one being cancelled, update it too
+        if (selectedOrder && selectedOrder.order_id === orderId) {
+          setSelectedOrder({...selectedOrder, order_status: 'Cancelled'});
+        }
+        
+        setIsLoading(false);
+        setSubmitSuccess(true);
+        setTimeout(() => {
+          setSubmitSuccess(false);
+        }, 3000);
+        
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error cancelling order:', err);
+        setSubmitError('Failed to cancel order. Please try again.');
+        setIsLoading(false);
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="profile-page">
@@ -283,7 +436,7 @@ const ProfilePage = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="profile-page">
@@ -477,7 +630,6 @@ const ProfilePage = () => {
           {activeTab === 'orders' && (
             <div className="orders-tab-content">
               <h3>Order History</h3>
-              
               {isLoading ? (
                 <div className="loading-container" style={{ minHeight: '200px' }}>
                   <div className="loading-spinner"></div>
@@ -498,7 +650,6 @@ const ProfilePage = () => {
                     <span className="order-status">Status</span>
                     <span className="order-actions">Actions</span>
                   </div>
-                  
                   {orderHistory.map(order => (
                     <div key={order.order_id} className="order-item">
                       <div className="order-id">#{order.order_id}</div>
@@ -510,28 +661,154 @@ const ProfilePage = () => {
                       <div className="order-actions">
                         <button 
                           className="view-order-details"
-                          onClick={() => {
-                            // You can implement a modal to show order details
-                            alert(`
-                              Order Details:
-                              Order ID: ${order.order_id}
-                              Date: ${formatDate(order.created_at)}
-                              Status: ${order.order_status}
-                              Total: ${formatPrice(order.total_amount)}
-                              ${order.order_type === 'Delivery' ? `Delivery Address: ${order.delivery_address}` : ''}
-                            `);
-                          }}
+                          onClick={() => handleViewOrderDetails(order)}
                         >
                           <i className="fas fa-eye"></i> View
                         </button>
                         {order.order_status === 'Pending' && (
-                          <button className="reorder-btn">
-                            <i className="fas fa-redo-alt"></i> Cancel
+                          <button 
+                            className="cancel-order-btn"
+                            onClick={() => handleCancelOrder(order.order_id)}
+                          >
+                            <i className="fas fa-times"></i> Cancel
                           </button>
                         )}
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {isViewingOrderDetails && selectedOrder && (
+                <div className="modal-overlay">
+                  <div className="modal-content order-details-modal">
+                    <div className="modal-header">
+                      <h2>{isEditingOrder ? 'Edit Order' : 'Order Details'}</h2>
+                      <button className="close-btn" onClick={handleCloseOrderDetails}>
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </div>
+                    <div className="modal-body">
+                      <div className="order-details-header">
+                        <div className="order-details-info">
+                          <p><strong>Order #:</strong> {selectedOrder.order_id}</p>
+                          <p><strong>Date:</strong> {formatDate(selectedOrder.created_at)}</p>
+                          <p><strong>Status:</strong> <span className={`status-${selectedOrder.order_status.toLowerCase().replace(' ', '-')}`}>{selectedOrder.order_status}</span></p>
+                          <p><strong>Type:</strong> {selectedOrder.order_type}</p>
+                          {selectedOrder.order_type === 'Delivery' && (
+                            <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <h3>Order Items</h3>
+                      
+                      <div className="order-items-list">
+                        <div className="order-item-header">
+                          <span className="item-name">Item</span>
+                          <span className="item-price">Price</span>
+                          <span className="item-quantity">Quantity</span>
+                          <span className="item-total">Total</span>
+                          {isEditingOrder && <span className="item-actions">Actions</span>}
+                        </div>
+                        
+                        {(isEditingOrder ? editedItems : selectedOrder.items || []).map((item, index) => (
+                          <div key={index} className="order-item-row">
+                            <span className="item-name">{item.menu_name}</span>
+                            <span className="item-price">{formatPrice(item.price)}</span>
+                            
+                            {isEditingOrder ? (
+                              <span className="item-quantity">
+                                <div className="quantity-controls">
+                                  <button 
+                                    className="qty-btn" 
+                                    onClick={() => handleUpdateItemQuantity(index, item.quantity - 1)}
+                                    disabled={item.quantity <= 1}
+                                  >-</button>
+                                  <span className="quantity">{item.quantity}</span>
+                                  <button 
+                                    className="qty-btn" 
+                                    onClick={() => handleUpdateItemQuantity(index, item.quantity + 1)}
+                                  >+</button>
+                                </div>
+                              </span>
+                            ) : (
+                              <span className="item-quantity">{item.quantity}</span>
+                            )}
+                            <span className="item-total">{formatPrice(item.price * item.quantity)}</span>
+                            {isEditingOrder && (
+                              <span className="item-actions">
+                                <button 
+                                  className="remove-item-btn"
+                                  onClick={() => handleRemoveItem(index)}
+                                  disabled={editedItems.length <= 1} // Prevent removing all items
+                                >
+                                  <i className="fas fa-trash-alt"></i>
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className="order-summary">
+                        <div className="summary-row">
+                          <span>Subtotal</span>
+                          <span>{formatPrice(
+                            (isEditingOrder ? editedItems : selectedOrder.items || []).reduce(
+                              (sum, item) => sum + (item.price * item.quantity), 
+                              0
+                            )
+                          )}</span>
+                        </div>
+                        
+                        {selectedOrder.delivery_fee > 0 && (
+                          <div className="summary-row">
+                            <span>Delivery Fee</span>
+                            <span>{formatPrice(selectedOrder.delivery_fee || 0)}</span>
+                          </div>
+                        )}
+                        
+                        {selectedOrder.service_fee > 0 && (
+                          <div className="summary-row">
+                            <span>Service Fee</span>
+                            <span>{formatPrice(selectedOrder.service_fee || 0)}</span>
+                          </div>
+                        )}
+                        
+                        <div className="summary-row total">
+                          <span>Total</span>
+                          <span>{formatPrice(
+                            isEditingOrder 
+                              ? editedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0) 
+                              : selectedOrder.total_amount
+                          )}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      {isEditingOrder ? (
+                        <>
+                          <button className="save-btn" onClick={handleSaveOrder} disabled={isLoading}>
+                            {isLoading ? 'Saving...' : 'Save Changes'}
+                          </button>
+                          <button className="cancel-btn" onClick={handleCancelEdit}>
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {selectedOrder.order_status === 'Pending' && (
+                            <button className="edit-order-btn" onClick={handleEditOrder}>
+                              <i className="fas fa-edit"></i> Edit Order
+                            </button>
+                          )}
+                          <button className="close-modal-btn" onClick={handleCloseOrderDetails}>
+                            Close
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -541,7 +818,6 @@ const ProfilePage = () => {
           {activeTab === 'reservations' && (
             <div className="reservations-tab-content">
               <h3>Your Reservations</h3>
-              
               {isLoadingReservations ? (
                 <div className="loading-container" style={{ minHeight: '200px' }}>
                   <div className="loading-spinner"></div>
@@ -568,7 +844,6 @@ const ProfilePage = () => {
                     const reservationDate = new Date(reservation.date_time);
                     const isPast = reservationDate < new Date();
                     const status = isPast ? 'Completed' : 'Confirmed';
-                    
                     return (
                       <div key={reservation.reserve_id} className="reservation-item">
                         <div className="reservation-id">#{reservation.reserve_id}</div>
@@ -612,10 +887,9 @@ const ProfilePage = () => {
                   })}
                 </div>
               )}
-              
               <div className="new-reservation">
                 <button 
-                  className="new-reservation-btn"
+                  className="new-reservation-btn" 
                   onClick={() => navigate('/reservation')}
                 >
                   <i className="fas fa-plus"></i> New Reservation

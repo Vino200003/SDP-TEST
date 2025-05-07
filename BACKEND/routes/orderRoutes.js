@@ -24,6 +24,10 @@ router.post('/', orderController.createOrder);
 router.patch('/:id/status', orderController.updateOrderStatus);
 router.put('/:id/status', orderController.updateOrderStatus); // Add PUT method support
 
+// Update order
+router.put('/:id', orderController.updateOrder);
+router.patch('/:id', orderController.updateOrder);
+
 // Delete order
 router.delete('/:id', orderController.deleteOrder);
 

@@ -414,25 +414,260 @@
   background-color: #f8f8f8;
 }
 
-.reorder-btn {
+.reorder-btn, .edit-order-btn {
   background-color: #d4af37;
   color: white;
   border: none;
 }
 
-.reorder-btn:hover {
+.reorder-btn:hover, .edit-order-btn:hover {
   background-color: #c19d2c;
 }
 
-.cancel-reservation-btn {
+.cancel-order-btn, .cancel-reservation-btn {
   background-color: #f8f8f8;
   color: #e74c3c;
   border: 1px solid #e74c3c;
 }
 
-.cancel-reservation-btn:hover {
+.cancel-order-btn:hover, .cancel-reservation-btn:hover {
   background-color: #e74c3c;
   color: white;
+}
+
+/* Modal for order details */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background-color: #fff;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.order-details-modal {
+  padding: 0;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.close-btn:hover {
+  color: #d4af37;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.order-details-header {
+  margin-bottom: 20px;
+}
+
+.order-details-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.order-details-info p {
+  margin: 0;
+  padding: 0;
+}
+
+.order-items-list {
+  margin: 20px 0;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.order-item-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  padding: 12px 15px;
+  background-color: #f8f8f8;
+  font-weight: 600;
+  color: #555;
+}
+
+.order-item-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  padding: 12px 15px;
+  border-top: 1px solid #eee;
+  align-items: center;
+}
+
+.order-item-row:first-child {
+  border-top: none;
+}
+
+.item-name {
+  font-weight: 500;
+}
+
+.item-quantity .quantity-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.item-quantity .qty-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background-color: #f8f8f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.item-quantity .qty-btn:hover:not(:disabled) {
+  background-color: #d4af37;
+  color: white;
+  border-color: #d4af37;
+}
+
+.item-quantity .qty-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.item-quantity .quantity {
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.item-total {
+  font-weight: 600;
+}
+
+.item-actions {
+  text-align: center;
+}
+
+.remove-item-btn {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  padding: 5px;
+  font-size: 0.9rem;
+}
+
+.remove-item-btn:hover {
+  color: #c0392b;
+}
+
+.order-summary {
+  margin-top: 30px;
+  border-top: 1px solid #eee;
+  padding-top: 20px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.summary-row.total {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.modal-footer {
+  padding: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  border-top: 1px solid #eee;
+}
+
+.edit-order-btn, .save-btn, .cancel-btn, .close-modal-btn {
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.edit-order-btn {
+  background-color: #d4af37;
+  color: white;
+  border: none;
+}
+
+.edit-order-btn:hover {
+  background-color: #c19d2c;
+}
+
+.save-btn {
+  background-color: #2ecc71;
+  color: white;
+  border: none;
+}
+
+.save-btn:hover {
+  background-color: #27ae60;
+}
+
+.cancel-btn, .close-modal-btn {
+  background-color: #f8f8f8;
+  color: #555;
+  border: 1px solid #ddd;
+}
+
+.cancel-btn:hover, .close-modal-btn:hover {
+  background-color: #eee;
 }
 
 /* No data message */
@@ -718,4 +953,151 @@
   .edit-profile-btn, .change-password-btn {
     width: 100%;
   }
+}
+
+/* Responsive styles for the modal */
+@media screen and (max-width: 768px) {
+  .order-details-info {
+    grid-template-columns: 1fr;
+  }
+  
+  .order-item-header, .order-item-row {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+  
+  .item-total, .item-actions {
+    display: none;
+  }
+  
+  .order-item-header span:nth-child(1):after {
+    content: '';
+  }
+  
+  .order-item-header span:nth-child(2):after {
+    content: '';
+  }
+  
+  .order-item-header span:nth-child(3):after {
+    content: '';
+  }
+  
+  .order-item-row {
+    position: relative;
+    padding-bottom: 40px;
+  }
+  
+  .order-item-row .item-total {
+    display: block;
+    position: absolute;
+    bottom: 10px;
+    left: 15px;
+  }
+  
+  .order-item-row .item-actions {
+    display: block;
+    position: absolute;
+    bottom: 10px;
+    right: 15px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .modal-content {
+    max-height: 100vh;
+    border-radius: 0;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+  
+  .modal-footer button {
+    width: 100%;
+  }
+}
+
+/* Enhanced styles for the order editing modal */
+.order-details-modal .modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.order-details-header {
+  margin-bottom: 20px;
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.order-details-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.order-details-info p {
+  margin: 0;
+  padding: 0;
+  font-size: 0.95rem;
+}
+
+.order-details-info p strong {
+  font-weight: 600;
+  color: #555;
+}
+
+/* Improve item quantity controls during edit */
+.item-quantity .quantity-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f8f8f8;
+  border-radius: 20px;
+  padding: 5px 10px;
+  border: 1px solid #eee;
+}
+
+.item-quantity .qty-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background-color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+.item-quantity .qty-btn:hover:not(:disabled) {
+  background-color: #d4af37;
+  color: white;
+  border-color: #d4af37;
+}
+
+.item-quantity .qty-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.item-quantity .quantity {
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+  color: #333;
+}
+
+/* Better feedback for saving changes */
+.save-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.remove-item-btn:disabled {
+  color: #ccc;
+  cursor: not-allowed;
 }

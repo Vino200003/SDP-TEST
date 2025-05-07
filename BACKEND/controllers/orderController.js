@@ -271,6 +271,195 @@ exports.updateOrderStatus = (req, res) => {
   });
 };
 
+// Update an existing order
+exports.updateOrder = (req, res) => {
+  const orderId = req.params.id;
+  const { 
+    user_id, 
+    order_type, 
+    items, 
+    delivery_person_id, 
+    delivery_address,
+    special_instructions,
+    payment_method,
+    payment_status 
+  } = req.body;
+  
+  // Begin transaction
+  db.beginTransaction(err => {
+    if (err) {
+      console.error('Error starting transaction:', err);
+      return res.status(500).json({ 
+        message: 'Error updating order', 
+        error: err.message 
+      });
+    }
+    
+    // First check if order exists
+    db.query('SELECT * FROM orders WHERE order_id = ?', [orderId], (orderErr, orderResults) => {
+      if (orderErr) {
+        return db.rollback(() => {
+          console.error('Error checking order existence:', orderErr);
+          res.status(500).json({ 
+            message: 'Error checking order existence', 
+            error: orderErr.message 
+          });
+        });
+      }
+      
+      if (orderResults.length === 0) {
+        return db.rollback(() => {
+          res.status(404).json({ message: 'Order not found' });
+        });
+      }
+      
+      const currentOrder = orderResults[0];
+      
+      // Build update object with only provided fields
+      const updateData = {};
+      if (user_id) updateData.user_id = user_id;
+      if (order_type) updateData.order_type = order_type;
+      if (delivery_person_id !== undefined) updateData.delivery_person_id = delivery_person_id;
+      if (delivery_address) updateData.delivery_address = delivery_address;
+      if (special_instructions !== undefined) updateData.special_instructions = special_instructions;
+      if (payment_method) updateData.payment_method = payment_method;
+      if (payment_status) updateData.payment_status = payment_status;
+      
+      // Add updated_at timestamp
+      updateData.updated_at = new Date();
+      
+      // If items are provided, recalculate total amount
+      let total_amount = currentOrder.total_amount;
+      if (items && Array.isArray(items) && items.length > 0) {
+        // Extract menu IDs to validate
+        const menuIds = items.map(item => item.menu_id);
+        
+        // Validate all menu items exist
+        const menuValidationQuery = 'SELECT menu_id FROM menu WHERE menu_id IN (?)';
+        db.query(menuValidationQuery, [menuIds], (validationErr, validationResults) => {
+          if (validationErr) {
+            return db.rollback(() => {
+              console.error('Error validating menu items:', validationErr);
+              res.status(500).json({ 
+                message: 'Error validating menu items', 
+                error: validationErr.message 
+              });
+            });
+          }
+          
+          // Check if all menu items exist
+          const foundMenuIds = validationResults.map(item => item.menu_id);
+          const missingMenuIds = menuIds.filter(id => !foundMenuIds.includes(id));
+          
+          if (missingMenuIds.length > 0) {
+            return db.rollback(() => {
+              res.status(400).json({ 
+                message: 'Some menu items do not exist', 
+                missingMenuIds 
+              });
+            });
+          }
+          
+          // Calculate total amount
+          total_amount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+          updateData.total_amount = total_amount;
+          
+          // Update the order first
+          updateOrderAndItems();
+        });
+      } else {
+        // Update the order without touching items
+        updateOrderAndItems();
+      }
+      
+      function updateOrderAndItems() {
+        // Only proceed with update if there are fields to update
+        if (Object.keys(updateData).length === 0) {
+          return db.rollback(() => {
+            res.status(400).json({ message: 'No update data provided' });
+          });
+        }
+        
+        // Update order
+        db.query('UPDATE orders SET ? WHERE order_id = ?', [updateData, orderId], (updateErr, updateResult) => {
+          if (updateErr) {
+            return db.rollback(() => {
+              console.error('Error updating order:', updateErr);
+              res.status(500).json({ 
+                message: 'Error updating order', 
+                error: updateErr.message 
+              });
+            });
+          }
+          
+          // If items are provided, update them
+          if (items && Array.isArray(items) && items.length > 0) {
+            // First delete existing items
+            db.query('DELETE FROM order_items WHERE order_id = ?', [orderId], (deleteErr) => {
+              if (deleteErr) {
+                return db.rollback(() => {
+                  console.error('Error deleting existing order items:', deleteErr);
+                  res.status(500).json({ 
+                    message: 'Error updating order items', 
+                    error: deleteErr.message 
+                  });
+                });
+              }
+              
+              // Then insert new items
+              const orderItems = items.map(item => [
+                orderId,
+                item.menu_id,
+                item.quantity,
+                item.price
+              ]);
+              
+              const itemsQuery = 'INSERT INTO order_items (order_id, menu_id, quantity, price) VALUES ?';
+              
+              db.query(itemsQuery, [orderItems], (insertErr) => {
+                if (insertErr) {
+                  return db.rollback(() => {
+                    console.error('Error inserting updated order items:', insertErr);
+                    res.status(500).json({ 
+                      message: 'Error updating order items', 
+                      error: insertErr.message 
+                    });
+                  });
+                }
+                
+                // Commit transaction
+                commitTransaction();
+              });
+            });
+          } else {
+            // No items to update, commit transaction
+            commitTransaction();
+          }
+        });
+      }
+      
+      function commitTransaction() {
+        db.commit(commitErr => {
+          if (commitErr) {
+            return db.rollback(() => {
+              console.error('Error committing transaction:', commitErr);
+              res.status(500).json({ 
+                message: 'Error updating order', 
+                error: commitErr.message 
+              });
+            });
+          }
+          
+          res.json({
+            message: 'Order updated successfully',
+            order_id: orderId
+          });
+        });
+      }
+    });
+  });
+};
+
 // Delete an order
 exports.deleteOrder = (req, res) => {
   const orderId = req.params.id;

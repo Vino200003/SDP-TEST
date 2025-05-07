@@ -17,5 +17,7 @@ router.get('/', adminOrderController.getAllOrders);
 router.get('/stats', adminOrderController.getOrderStats);
 router.get('/:id', adminOrderController.getOrderById);
 router.patch('/:id/status', adminOrderController.updateOrderStatus);
+router.put('/:id', adminOrderController.updateOrder);
+router.patch('/:id', adminOrderController.updateOrder);
 
 module.exports = router;
