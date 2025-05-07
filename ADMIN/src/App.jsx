@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import MenuManagement from './pages/MenuManagement';
 import OrdersManagement from './pages/OrdersManagement';
+import ReservationManagement from './pages/ReservationManagement';
 // Import placeholder components for other pages
 import PlaceholderPage from './components/PlaceholderPage';
 import './App.css';
@@ -41,7 +42,7 @@ function App() {
       } />
       <Route path="/reservations" element={
         <ProtectedRoute>
-          <PlaceholderPage title="Table Reservations" />
+          <ReservationManagement />
         </ProtectedRoute>
       } />
       <Route path="/inventory" element={
