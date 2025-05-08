@@ -1,25 +1,26 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { logout } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Sidebar.css';
 import logo from '../assets/logo.png';
 
 function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  
+  const { logout } = useAuth();
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+    console.log('User logged out');
   };
-  
-  // Add this function to check if route is active, supporting both exact matches and nested routes
+
   const isRouteActive = (path) => {
     if (path === '/dashboard' && location.pathname === '/dashboard') {
       return true;
     }
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
-  
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">

@@ -1,13 +1,39 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import useApiServices from '../hooks/useApiServices';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import '../styles/Dashboard.css';
 
 function Dashboard() {
+  const { user, isAuthenticated } = useAuth();
+  const [dashboardData, setDashboardData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize API services
+  useApiServices();
+
+  // Sample useEffect for demonstration
+  useEffect(() => {
+    // Log authentication status for debugging
+    console.log('Dashboard mounted. Auth status:', isAuthenticated);
+    
+    // Your existing data fetching logic...
+    
+  }, [isAuthenticated]);
+
+  // Additional user welcome message showing successful authentication
+  const welcomeMessage = user ? `Welcome back, ${user.first_name} ${user.last_name}!` : 'Welcome to the Dashboard!';
+
   return (
     <div className="dashboard-container">
       <Sidebar />
       <main className="dashboard-content">
+        <div className="welcome-message">
+          <h1>{welcomeMessage}</h1>
+          <p>Here's what's happening with your restaurant today</p>
+        </div>
+        
         <Header title="Dashboard" />
         
         <div className="dashboard-overview">

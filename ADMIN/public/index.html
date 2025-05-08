@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/src/assets/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Restaurant Admin</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f8f9fa;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      .loading-indicator {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        color: #4caf50;
+      }
+      .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #4caf50;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="loading-indicator">
+        <div class="spinner"></div>
+        <p>Loading Restaurant Admin Dashboard...</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Fallback if the app doesn't load
+      setTimeout(() => {
+        const loadingIndicator = document.querySelector('.loading-indicator');
+        if (loadingIndicator && !window.appLoaded) {
+          loadingIndicator.innerHTML += '<p style="color: #dc3545">The application is taking longer than expected to load.<br>Please check your console for errors or refresh the page.</p>';
+        }
+      }, 10000);
+    </script>
+  </body>
+</html>

@@ -5,52 +5,38 @@ import OrdersManagement from './pages/OrdersManagement';
 import ReservationManagement from './pages/ReservationManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import Login from './pages/Login';
-import { useState, useEffect } from 'react';
-import { isAuthenticated } from './services/authService';
-import PlaceholderPage from "./components/PlaceholderPage";
+import { AuthProvider, useAuth } from './context/AuthContext';
 import "./App.css";
 
 function App() {
-  const [isAuth, setIsAuth] = useState(isAuthenticated());
-
-  // Check authentication status when component mounts
-  useEffect(() => {
-    setIsAuth(isAuthenticated());
-  }, []);
-
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route 
-          path="/" 
-          element={isAuth ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/dashboard" 
-          element={isAuth ? <Dashboard /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/menu-management" 
-          element={isAuth ? <MenuManagement /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/orders" 
-          element={isAuth ? <OrdersManagement /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/reservations" 
-          element={isAuth ? <ReservationManagement /> : <Navigate to="/login" />} 
-        />
-        <Route 
-          path="/inventory" 
-          element={isAuth ? <InventoryManagement /> : <Navigate to="/login" />} 
-        />
-        {/* Add other protected routes here */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Adjust the login route to check authentication */}
+          <Route 
+            path="/login" 
+            element={
+              <LoginWrapper />
+            } 
+          />
+          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/menu-management" element={<MenuManagement />} />
+          <Route path="/orders" element={<OrdersManagement />} />
+          <Route path="/reservations" element={<ReservationManagement />} />
+          <Route path="/inventory" element={<InventoryManagement />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
+}
+
+// This component handles redirect logic for the login page
+function LoginWrapper() {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated ? <Navigate to="/dashboard" /> : <Login />;
 }
 
 export default App;

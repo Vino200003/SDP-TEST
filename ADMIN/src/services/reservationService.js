@@ -8,6 +8,22 @@ import {
   checkServerAvailability
 } from '../utils/mockData';
 
+// This variable will be set by the component using the service
+let getAuthToken = null;
+
+// Function to set the auth token getter from context
+export const setAuthTokenGetter = (tokenGetter) => {
+  getAuthToken = tokenGetter;
+};
+
+// Get auth token from localStorage using the correct key
+const getStoredAuthToken = () => {
+  // Try different possible token keys, as the code seems to use different naming conventions
+  return localStorage.getItem('adminToken') || 
+         localStorage.getItem('auth_token') || 
+         localStorage.getItem('admin_token');
+};
+
 // Track server connectivity state
 let isServerAvailable = true;
 let connectionAttempts = 0;
@@ -58,8 +74,8 @@ export const getAllReservations = async (params = {}) => {
     
     const queryString = queryParams.toString();
     
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get token from auth context or from localStorage
+    const token = getAuthToken ? getAuthToken() : getStoredAuthToken();
     
     console.log('Server URL:', `${API_URL}/api/reservations?${queryString}`);
     console.log('Token available:', !!token);
@@ -116,27 +132,64 @@ export const getAllReservations = async (params = {}) => {
 // Fallback to get reservations from the regular endpoint if admin endpoint isn't available
 const getFallbackReservations = async (params = {}) => {
   try {
-    const token = localStorage.getItem('adminToken');
+    const token = getStoredAuthToken();
     
     if (!token) {
       return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
     }
     
-    // Try the getAdminReservations method if available
-    const response = await fetch(`${API_URL}/api/admin/reservations`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    // Try the endpoints in order until one works
+    const endpoints = [
+      // First try the admin-specific endpoint
+      `${API_URL}/api/admin/reservations`,
+      // Then try without 'admin' path
+      `${API_URL}/api/reservations`,
+      // Try with a root path as last resort
+      `${API_URL}/reservations`
+    ];
     
-    if (!response.ok) {
-      console.warn(`Fallback API response not OK: ${response.status} ${response.statusText}`);
-      return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
+    let lastError = null;
+    
+    // Try each endpoint
+    for (const endpoint of endpoints) {
+      try {
+        console.log(`Trying endpoint: ${endpoint}`);
+        
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        if (params.page) queryParams.append('page', params.page);
+        if (params.limit) queryParams.append('limit', params.limit);
+        if (params.status) queryParams.append('status', params.status);
+        if (params.startDate) queryParams.append('startDate', params.startDate);
+        if (params.endDate) queryParams.append('endDate', params.endDate);
+        
+        const queryString = queryParams.toString();
+        const url = queryString ? `${endpoint}?${queryString}` : endpoint;
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          console.log(`Successful response from endpoint: ${endpoint}`);
+          return await response.json();
+        }
+        
+        lastError = `Server returned ${response.status}: ${response.statusText}`;
+        console.warn(`Endpoint ${endpoint} failed: ${lastError}`);
+      } catch (error) {
+        lastError = error.message;
+        console.error(`Error trying endpoint ${endpoint}:`, error);
+      }
     }
     
-    return await response.json();
+    // If we get here, all endpoints failed
+    console.error('All reservation endpoints failed:', lastError);
+    return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
   } catch (error) {
     console.error('Fallback reservation service error:', error);
     return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
@@ -165,8 +218,8 @@ export const getReservationStats = async (startDate = '', endDate = '') => {
     
     const queryString = queryParams.toString();
     
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get admin token from localStorage using our helper function
+    const token = getStoredAuthToken();
     
     if (!token) {
       console.warn('No authentication token available');
@@ -210,8 +263,8 @@ export const getReservationStats = async (startDate = '', endDate = '') => {
 // Get a single reservation by ID - connects to getReservationById endpoint
 export const getReservationById = async (reservationId) => {
   try {
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get admin token from localStorage using our helper
+    const token = getStoredAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
@@ -249,8 +302,8 @@ export const updateReservationStatus = async (reservationId, newStatus) => {
       return updateStatusInMemory(reservationId, newStatus);
     }
     
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get admin token using our helper function
+    const token = getStoredAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
@@ -471,8 +524,8 @@ export const getAllTables = async () => {
 // Create a new table
 export const createNewTable = async (tableData) => {
   try {
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get admin token using our helper function
+    const token = getStoredAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
@@ -502,8 +555,8 @@ export const createNewTable = async (tableData) => {
 // Update table status
 export const updateTableStatus = async (tableNo, newStatus) => {
   try {
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get admin token using our helper function
+    const token = getStoredAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');
@@ -533,8 +586,8 @@ export const updateTableStatus = async (tableNo, newStatus) => {
 // Set table active status
 export const setTableActiveStatus = async (tableNo, isActive) => {
   try {
-    // Get admin token from localStorage
-    const token = localStorage.getItem('adminToken');
+    // Get admin token using our helper function
+    const token = getStoredAuthToken();
     
     if (!token) {
       throw new Error('Authentication required');

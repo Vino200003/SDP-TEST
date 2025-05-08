@@ -1,82 +1,58 @@
 import { API_URL } from '../config/constants';
 
-// Auth token key for localStorage
-const TOKEN_KEY = 'adminToken';
-const USER_KEY = 'adminUser';
+// This file now serves as a bridge to the AuthContext
+// The actual authentication logic has been moved to AuthContext.jsx
 
 /**
- * Login admin user
- * @param {string} email - Admin email
- * @param {string} password - Admin password
- * @returns {Promise} - Promise with admin data
+ * NOTE: These functions require the AuthContext to be properly set up
+ * They're kept here for backward compatibility with existing code
+ * Ideally, components should use the useAuth hook directly
  */
+
+// This will be deprecated - components should use useAuth().login
 export const login = async (credentials) => {
-  // Simulate API delay
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (credentials.username && credentials.password) {
-        // Store token in localStorage
-        localStorage.setItem('auth_token', 'mock_token_value');
-        resolve(true);
-      } else {
-        reject(new Error('Invalid credentials'));
-      }
-    }, 800);
-  });
+  // This function is kept for backward compatibility
+  // The actual implementation is now in AuthContext
+  console.warn('Using deprecated login method in authService. Use useAuth().login instead');
+  
+  // This will throw an error if not within AuthProvider
+  // Proper implementation would require passing the login function here
+  throw new Error('Please update your code to use useAuth().login instead');
 };
 
-/**
- * Logout user
- */
+// This will be deprecated - components should use useAuth().logout
 export const logout = () => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  console.warn('Using deprecated logout method in authService. Use useAuth().logout instead');
+  throw new Error('Please update your code to use useAuth().logout instead');
 };
 
-/**
- * Check if user is authenticated
- * @returns {boolean} - True if user is authenticated
- */
+// This will be deprecated - components should use useAuth().isAuthenticated
 export const isAuthenticated = () => {
-  return localStorage.getItem('auth_token') !== null;
+  console.warn('Using deprecated isAuthenticated method in authService. Use useAuth().isAuthenticated instead');
+  throw new Error('Please update your code to use useAuth().isAuthenticated instead');
 };
 
-/**
- * Get current user
- * @returns {Object|null} - User object or null
- */
+// This will be deprecated - components should use useAuth().user
 export const getCurrentUser = () => {
-  const userStr = localStorage.getItem(USER_KEY);
-  return userStr ? JSON.parse(userStr) : null;
+  console.warn('Using deprecated getCurrentUser method in authService. Use useAuth().user instead');
+  throw new Error('Please update your code to use useAuth().user instead');
 };
 
-/**
- * Get auth token
- * @returns {string|null} - Auth token or null
- */
+// This will be deprecated - components should use useAuth().getToken
 export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  console.warn('Using deprecated getToken method in authService. Use useAuth().getToken instead');
+  throw new Error('Please update your code to use useAuth().getToken instead');
 };
 
-/**
- * Get user's authentication status and data
- * @returns {Object} - Auth status and user data
- */
+// This will be deprecated - components should use useAuth() directly
 export const getAuthStatus = () => {
-  return {
-    isAuthenticated: isAuthenticated(),
-    user: getCurrentUser(),
-  };
+  console.warn('Using deprecated getAuthStatus method in authService. Use useAuth() instead');
+  throw new Error('Please update your code to use useAuth() instead');
 };
 
-/**
- * Check if token is valid by making a request to the backend
- * @returns {Promise<boolean>} - True if token is valid
- */
-export const validateToken = async () => {
+// This function can be retained but should use the auth context
+export const validateToken = async (token) => {
   try {
-    const token = getToken();
-    
     if (!token) return false;
     
     const response = await fetch(`${API_URL}/api/admin/profile`, {
@@ -91,8 +67,3 @@ export const validateToken = async () => {
     return false;
   }
 };
-
-// For demo purposes, auto-login during development
-if (process.env.NODE_ENV === 'development' && !localStorage.getItem('auth_token')) {
-  localStorage.setItem('auth_token', 'dev_token');
-}

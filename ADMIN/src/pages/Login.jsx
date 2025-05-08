@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login } from '../services/authService';
 import '../styles/Login.css';
 import logo from '../assets/logo.png';
 
-function Login() {
+function Login({ onLogin }) {
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
@@ -27,7 +26,24 @@ function Login() {
     setIsLoading(true);
     
     try {
-      await login(credentials);
+      // Simple validation
+      if (!credentials.username || !credentials.password) {
+        throw new Error('Username and password are required');
+      }
+      
+      // For development/testing: accept any credentials
+      // Store token in multiple formats to ensure compatibility with our token helper
+      localStorage.setItem('auth_token', 'mock_token_value');
+      localStorage.setItem('adminToken', 'mock_token_value'); // Add this format as well
+      localStorage.setItem('admin_user', JSON.stringify({
+        name: credentials.username,
+        role: 'admin'
+      }));
+      
+      // Call the onLogin callback to update auth state
+      if (onLogin) onLogin();
+      
+      // Navigate to dashboard
       navigate('/dashboard');
     } catch (error) {
       setError(error.message || 'Login failed. Please try again.');
@@ -79,6 +95,11 @@ function Login() {
             {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>
+        
+        {/* Development helper */}
+        <div className="login-footer">
+          <p>For testing, enter any username and password</p>
+        </div>
       </div>
     </div>
   );
