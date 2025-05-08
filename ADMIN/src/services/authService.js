@@ -10,37 +10,19 @@ const USER_KEY = 'adminUser';
  * @param {string} password - Admin password
  * @returns {Promise} - Promise with admin data
  */
-export const login = async (email, password) => {
-  try {
-    console.log('Logging in with:', { email, password: '****' });
-    console.log('API URL:', `${API_URL}/api/admin/login`);
-    
-    const response = await fetch(`${API_URL}/api/admin/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-    console.log('Login response status:', response.status);
-    console.log('Response data:', data);
-
-    if (!response.ok) {
-      console.error('Login failed with status:', response.status);
-      throw new Error(data.message || 'Login failed');
-    }
-
-    // Store token and user data in localStorage
-    localStorage.setItem(TOKEN_KEY, data.token);
-    localStorage.setItem(USER_KEY, JSON.stringify(data.admin));
-    
-    return { success: true, data };
-  } catch (error) {
-    console.error('Login error:', error);
-    return { success: false, error: error.message };
-  }
+export const login = async (credentials) => {
+  // Simulate API delay
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      if (credentials.username && credentials.password) {
+        // Store token in localStorage
+        localStorage.setItem('auth_token', 'mock_token_value');
+        resolve(true);
+      } else {
+        reject(new Error('Invalid credentials'));
+      }
+    }, 800);
+  });
 };
 
 /**
@@ -56,7 +38,7 @@ export const logout = () => {
  * @returns {boolean} - True if user is authenticated
  */
 export const isAuthenticated = () => {
-  return localStorage.getItem(TOKEN_KEY) !== null;
+  return localStorage.getItem('auth_token') !== null;
 };
 
 /**
@@ -109,3 +91,8 @@ export const validateToken = async () => {
     return false;
   }
 };
+
+// For demo purposes, auto-login during development
+if (process.env.NODE_ENV === 'development' && !localStorage.getItem('auth_token')) {
+  localStorage.setItem('auth_token', 'dev_token');
+}

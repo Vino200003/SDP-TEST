@@ -1,75 +1,61 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL } from '../config/constants';
+import { login } from '../services/authService';
 import '../styles/Login.css';
+import logo from '../assets/logo.png';
 
 function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [credentials, setCredentials] = useState({
+    username: '',
+    password: ''
+  });
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setCredentials({
+      ...credentials,
+      [name]: value
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-
+    setIsLoading(true);
+    
     try {
-      const response = await fetch(`${API_URL}/api/admin/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      console.log('Login successful, received token:', data.token.substring(0, 20) + '...');
-      
-      // Save admin info and token to localStorage
-      localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('adminInfo', JSON.stringify(data.admin));
-      
-      // Verify token was saved
-      const savedToken = localStorage.getItem('adminToken');
-      console.log('Verified token in localStorage:', savedToken ? 'Token present' : 'Token missing');
-      
-      // Redirect to dashboard
+      await login(credentials);
       navigate('/dashboard');
     } catch (error) {
-      console.error('Login error:', error);
-      setError(error.message || 'An error occurred during login');
+      setError(error.message || 'Login failed. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="login-container">
-      <div className="login-form-container">
+      <div className="login-card">
         <div className="login-header">
+          <img src={logo} alt="Restaurant Logo" className="login-logo" />
           <h1>Restaurant Admin</h1>
-          <p>Sign in to access your dashboard</p>
         </div>
         
         {error && <div className="error-message">{error}</div>}
         
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="username">Username</label>
             <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              id="username"
+              name="username"
+              value={credentials.username}
+              onChange={handleChange}
               required
-              placeholder="Enter your email"
             />
           </div>
           
@@ -78,25 +64,21 @@ function Login() {
             <input
               type="password"
               id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              name="password"
+              value={credentials.password}
+              onChange={handleChange}
               required
-              placeholder="Enter your password"
             />
           </div>
           
           <button 
             type="submit" 
             className="login-button"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {isLoading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        
-        <div className="login-footer">
-          <p>© 2023 Restaurant Admin Panel</p>
-        </div>
       </div>
     </div>
   );

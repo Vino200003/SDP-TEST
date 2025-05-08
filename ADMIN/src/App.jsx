@@ -1,36 +1,55 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
-import OrdersManagement from "./pages/OrdersManagement";
-import MenuManagement from "./pages/MenuManagement";
-import ReservationManagement from "./pages/ReservationManagement";
-import InventoryManagement from "./pages/InventoryManagement";
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Dashboard from './pages/Dashboard';
+import MenuManagement from './pages/MenuManagement';
+import OrdersManagement from './pages/OrdersManagement';
+import ReservationManagement from './pages/ReservationManagement';
+import InventoryManagement from './pages/InventoryManagement';
+import Login from './pages/Login';
+import { useState, useEffect } from 'react';
+import { isAuthenticated } from './services/authService';
 import PlaceholderPage from "./components/PlaceholderPage";
 import "./App.css";
 
-// Protected Route component
-const ProtectedRoute = ({ children }) => {
-  if (!isAuthenticated()) {
-    // Redirect to login if not authenticated
-    return <Navigate to="/login" />;
-  }
-  return children;
-};
-
 function App() {
+  const [isAuth, setIsAuth] = useState(isAuthenticated());
+
+  // Check authentication status when component mounts
+  useEffect(() => {
+    setIsAuth(isAuthenticated());
+  }, []);
+
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        <Route path="/" element={<Dashboard />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/orders" element={<OrdersManagement />} />
-        <Route path="/inventory" element={<InventoryManagement />} />
-        <Route path="/menu" element={<MenuManagement />} />
-        <Route path="/reservations" element={<ReservationManagement />} />
-        {/* Use PlaceholderPage for the 404 route instead of NotFound */}
-        <Route path="*" element={<PlaceholderPage title="404 - Page Not Found" />} />
+        <Route 
+          path="/" 
+          element={isAuth ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/dashboard" 
+          element={isAuth ? <Dashboard /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/menu-management" 
+          element={isAuth ? <MenuManagement /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/orders" 
+          element={isAuth ? <OrdersManagement /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/reservations" 
+          element={isAuth ? <ReservationManagement /> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/inventory" 
+          element={isAuth ? <InventoryManagement /> : <Navigate to="/login" />} 
+        />
+        {/* Add other protected routes here */}
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 

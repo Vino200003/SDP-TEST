@@ -12,6 +12,14 @@ function Sidebar() {
     navigate('/login');
   };
   
+  // Add this function to check if route is active, supporting both exact matches and nested routes
+  const isRouteActive = (path) => {
+    if (path === '/dashboard' && location.pathname === '/dashboard') {
+      return true;
+    }
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
+  
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -21,62 +29,62 @@ function Sidebar() {
       <nav className="sidebar-nav">
         <ul>
           <li>
-            <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
+            <Link to="/dashboard" className={`nav-link ${isRouteActive('/dashboard') ? 'active' : ''}`}>
               <span className="icon">📊</span>
               Dashboard
             </Link>
           </li>
           <li>
-            <Link to="/menu-management" className={`nav-link ${location.pathname === '/menu-management' ? 'active' : ''}`}>
+            <Link to="/menu-management" className={`nav-link ${isRouteActive('/menu-management') ? 'active' : ''}`}>
               <span className="icon">🍽️</span>
               Menu Management
             </Link>
           </li>
           <li>
-            <Link to="/orders" className={`nav-link ${location.pathname === '/orders' ? 'active' : ''}`}>
+            <Link to="/orders" className={`nav-link ${isRouteActive('/orders') ? 'active' : ''}`}>
               <span className="icon">🛒</span>
               Orders
             </Link>
           </li>
           
           <li>
-            <Link to="/reservations" className={`nav-link ${location.pathname === '/reservations' ? 'active' : ''}`}>
+            <Link to="/reservations" className={`nav-link ${isRouteActive('/reservations') ? 'active' : ''}`}>
               <span className="icon">📅</span>
               Table Reservations
             </Link>
           </li>
           <li>
-            <Link to="/inventory" className={`nav-link ${location.pathname === '/inventory' ? 'active' : ''}`}>
+            <Link to="/inventory" className={`nav-link ${isRouteActive('/inventory') ? 'active' : ''}`}>
               <span className="icon">📦</span>
               Inventory
             </Link>
           </li>
           <li>
-            <Link to="/staff" className={`nav-link ${location.pathname === '/staff' ? 'active' : ''}`}>
+            <Link to="/staff" className={`nav-link ${isRouteActive('/staff') ? 'active' : ''}`}>
               <span className="icon">👥</span>
               Staff Management
             </Link>
           </li>
           <li>
-            <Link to="/attendance" className={`nav-link ${location.pathname === '/attendance' ? 'active' : ''}`}>
+            <Link to="/attendance" className={`nav-link ${isRouteActive('/attendance') ? 'active' : ''}`}>
               <span className="icon">⏱️</span>
               Attendance
             </Link>
           </li>
           <li>
-            <Link to="/delivery" className={`nav-link ${location.pathname === '/delivery' ? 'active' : ''}`}>
+            <Link to="/delivery" className={`nav-link ${isRouteActive('/delivery') ? 'active' : ''}`}>
               <span className="icon">🚚</span>
               Delivery Management
             </Link>
           </li>
           <li>
-            <Link to="/settings" className={`nav-link ${location.pathname === '/settings' ? 'active' : ''}`}>
+            <Link to="/settings" className={`nav-link ${isRouteActive('/settings') ? 'active' : ''}`}>
               <span className="icon">⚙️</span>
               Admin Settings
             </Link>
           </li>
           <li>
-            <Link to="/reports" className={`nav-link ${location.pathname === '/reports' ? 'active' : ''}`}>
+            <Link to="/reports" className={`nav-link ${isRouteActive('/reports') ? 'active' : ''}`}>
               <span className="icon">📈</span>
               Reports
             </Link>
