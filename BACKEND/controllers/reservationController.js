@@ -2,9 +2,9 @@ const db = require('../config/db');
 const { isDateTimeAvailable, getAvailableTables } = require('../utils/reservationUtils');
 const jwt = require('jsonwebtoken');
 
-/**
- * Get all reservations (admin only)
- */
+
+ //Get all reservations (admin only)
+ 
 exports.getAllReservations = (req, res) => {
   try {
     // Extract query parameters
@@ -102,7 +102,7 @@ exports.getAllReservations = (req, res) => {
           }
           // Ensure status is defined
           if (!reservation.status) {
-            reservation.status = 'Confirmed';
+            reservation.status = 'Pending'; // Change default status to Pending
           }
           return reservation;
         });
@@ -127,6 +127,8 @@ exports.getAllReservations = (req, res) => {
     });
   }
 };
+
+
 
 /**
  * Get reservations for a specific user
@@ -210,6 +212,9 @@ exports.getUserReservations = (req, res) => {
   }
 };
 
+
+
+
 /**
  * Get a specific reservation by ID
  */
@@ -240,6 +245,9 @@ exports.getReservationById = (req, res) => {
     res.json(results[0]);
   });
 };
+
+
+
 
 /**
  * Create a new reservation
@@ -290,7 +298,8 @@ exports.createReservation = async (req, res) => {
       user_id: user_id || null, // Allow anonymous reservations
       table_no,
       special_requests: special_requests || null,
-      date_time: reservationDateTime
+      date_time: reservationDateTime,
+      status: 'Pending' // Set status as Pending by default
     };
     
     db.query('INSERT INTO reservations SET ?', newReservation, (err, result) => {
@@ -316,6 +325,9 @@ exports.createReservation = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+
+
 
 /**
  * Update an existing reservation
@@ -426,6 +438,8 @@ exports.updateReservation = async (req, res) => {
   }
 };
 
+
+
 /**
  * Delete a reservation
  */
@@ -452,6 +466,8 @@ exports.deleteReservation = (req, res) => {
   });
 };
 
+
+
 /**
  * Get all tables
  */
@@ -475,6 +491,8 @@ exports.getAllTables = (req, res) => {
   }
 };
 
+
+
 /**
  * Check available tables for a given date/time
  */
@@ -497,6 +515,8 @@ exports.getAvailableTablesForDateTime = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+
 
 /**
  * Get all reservations for admin (with pagination and filters)
@@ -532,6 +552,8 @@ exports.getAdminReservations = async (req, res) => {
     });
   }
 };
+
+
 
 /**
  * Get reservation statistics for admin
@@ -661,6 +683,10 @@ exports.getReservationStats = async (req, res) => {
   }
 };
 
+
+
+
+
 /**
  * Update reservation status (admin only)
  */
@@ -669,42 +695,96 @@ exports.updateReservationStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     
+    // Log the received data for debugging
+    console.log('Updating reservation status:', {
+      reservationId: id,
+      newStatus: status,
+      requestBody: req.body
+    });
+    
     if (!status) {
       return res.status(400).json({ message: 'Status is required' });
     }
     
     // Validate status
-    const validStatuses = ['Confirmed', 'Completed', 'Cancelled', 'No-Show'];
+    const validStatuses = ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'No-Show'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ 
         message: 'Invalid status. Must be one of: ' + validStatuses.join(', ') 
       });
     }
     
-    // Update reservation status
-    db.query(
-      'UPDATE reservations SET status = ? WHERE reserve_id = ?',
-      [status, id],
-      (err, result) => {
-        if (err) {
-          console.error('Error updating reservation status:', err);
-          return res.status(500).json({ 
-            message: 'Error updating reservation status', 
-            error: err.message 
-          });
-        }
-        
-        if (result.affectedRows === 0) {
-          return res.status(404).json({ message: 'Reservation not found' });
-        }
-        
-        res.json({
-          message: 'Reservation status updated successfully',
-          reservation_id: id,
-          status
+    // First check if the status column exists in the reservations table
+    db.query('SHOW COLUMNS FROM reservations', (err, columns) => {
+      if (err) {
+        console.error('Error checking reservation table schema:', err);
+        return res.status(500).json({
+          message: 'Error checking database schema',
+          error: err.message
         });
       }
-    );
+      
+      // Find the status column (it might be named differently)
+      const statusColumn = columns.find(col => 
+        col.Field === 'status' || 
+        col.Field === 'reservation_status' || 
+        col.Field === 'reserve_status'
+      );
+      
+      if (!statusColumn) {
+        console.log('Status column not found. Available columns:', columns.map(c => c.Field));
+        
+        // Try to add the status column to the table
+        db.query('ALTER TABLE reservations ADD COLUMN status VARCHAR(20) DEFAULT "Pending"', (alterErr) => {
+          if (alterErr) {
+            console.error('Error adding status column:', alterErr);
+            return res.status(500).json({
+              message: 'Status column not found in database schema and could not be added',
+              availableColumns: columns.map(c => c.Field),
+              error: alterErr.message
+            });
+          }
+          
+          console.log('Status column added successfully. Now updating reservation status.');
+          
+          // Now update the reservation with the newly added column
+          updateReservationWithStatus('status');
+        });
+      } else {
+        // Status column exists, proceed with the update
+        const statusFieldName = statusColumn.Field;
+        console.log(`Using status field name: ${statusFieldName}`);
+        updateReservationWithStatus(statusFieldName);
+      }
+      
+      // Function to update the reservation with the given status field name
+      function updateReservationWithStatus(fieldName) {
+        // Update reservation status using the correct column name
+        db.query(
+          `UPDATE reservations SET ${fieldName} = ? WHERE reserve_id = ?`,
+          [status, id],
+          (updateErr, result) => {
+            if (updateErr) {
+              console.error('Error updating reservation status:', updateErr);
+              return res.status(500).json({ 
+                message: 'Error updating reservation status', 
+                error: updateErr.message 
+              });
+            }
+            
+            if (result.affectedRows === 0) {
+              return res.status(404).json({ message: 'Reservation not found' });
+            }
+            
+            res.json({
+              message: 'Reservation status updated successfully',
+              reservation_id: id,
+              status
+            });
+          }
+        );
+      }
+    });
   } catch (error) {
     console.error('Error in updateReservationStatus:', error);
     res.status(500).json({ 

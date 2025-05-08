@@ -117,7 +117,7 @@ export const mockStats = {
 };
 
 export const generateMockReservations = (count = 10) => {
-  const statuses = ["Confirmed", "Completed", "Cancelled", "No-Show"];
+  const statuses = ["Pending", "Confirmed", "Completed", "Cancelled"];
   const tableNos = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const specialRequests = [
     "Window seat preferred", 

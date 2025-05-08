@@ -5,7 +5,8 @@ import {
   getAllReservations, 
   updateReservationStatus, 
   getReservationStats,
-  checkServerConnection
+  checkServerConnection,
+  getReservationStatus // Import the new helper function
 } from '../services/reservationService';
 import { serverStatus } from '../utils/mockData';
 import '../styles/ReservationManagement.css';
@@ -17,7 +18,7 @@ function ReservationManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isServerDown, setIsServerDown] = useState(false);  // Initialize as false to never show notification
+  const [isServerDown, setIsServerDown] = useState(false);
   const [reservationStats, setReservationStats] = useState({
     total: 0,
     upcoming: 0,
@@ -60,9 +61,8 @@ function ReservationManagement() {
 
   // Update server status state when the status changes
   useEffect(() => {
-    // Comment out or remove the line that updates the server status
-    // setIsServerDown(!serverStatus.isAvailable);
-  }, [/* serverStatus.isAvailable */]);
+    setIsServerDown(!serverStatus.isAvailable);
+  }, [serverStatus.isAvailable]);
 
   const fetchReservations = async () => {
     setIsLoading(true);
@@ -154,9 +154,9 @@ function ReservationManagement() {
     }
   }, [filters.searchTerm, reservations]);
 
-  const applySearchFilter = () => {
+  const applySearchFilter = (reservationsToFilter = reservations) => {
     const searchLower = filters.searchTerm.toLowerCase();
-    const result = reservations.filter(reservation => {
+    const result = reservationsToFilter.filter(reservation => {
       // Search by reservation ID (reserve_id is the field from the backend)
       if ((reservation.reserve_id || reservation.reservation_id) && 
           (reservation.reserve_id?.toString().toLowerCase().includes(searchLower) || 
@@ -242,34 +242,58 @@ function ReservationManagement() {
     setIsDetailsModalOpen(true);
   };
 
+  // Modify the handleUpdateStatus function to force immediate re-render
   const handleUpdateStatus = async (reservationId, newStatus) => {
     try {
-      await updateReservationStatus(reservationId, newStatus);
+      setIsLoading(true);
+      console.log(`Attempting to update reservation ${reservationId} to status ${newStatus}`);
       
-      // Update local state
-      const updatedReservations = reservations.map(reservation => 
-        (reservation.reserve_id === reservationId || reservation.reservation_id === reservationId)
-          ? { ...reservation, status: newStatus } 
-          : reservation
-      );
+      // Force an immediate update in the UI by updating in-memory first
+      const statusesJson = localStorage.getItem('reservationStatuses') || '{}';
+      const statuses = JSON.parse(statusesJson);
+      statuses[reservationId] = newStatus;
+      localStorage.setItem('reservationStatuses', JSON.stringify(statuses));
       
-      setReservations(updatedReservations);
-      setFilteredReservations(updatedReservations.filter(reservation => 
-        !filters.status || reservation.status === filters.status
-      ));
+      // Force re-render by creating new objects
+      setReservations(prev => {
+        return prev.map(r => 
+          (r.reserve_id === reservationId || r.reservation_id === reservationId) 
+            ? {...r} // Create a new object reference to force re-render
+            : r
+        );
+      });
       
-      // If we're viewing this reservation in the modal, update it there too
-      if (selectedReservation && (selectedReservation.reserve_id === reservationId || 
-                                selectedReservation.reservation_id === reservationId)) {
-        setSelectedReservation({ ...selectedReservation, status: newStatus });
+      setFilteredReservations(prev => {
+        return prev.map(r => 
+          (r.reserve_id === reservationId || r.reservation_id === reservationId) 
+            ? {...r} // Create a new object reference to force re-render
+            : r
+        );
+      });
+      
+      // If we're viewing this reservation, update the modal too
+      if (selectedReservation && 
+          (selectedReservation.reserve_id === reservationId || 
+           selectedReservation.reservation_id === reservationId)) {
+        setSelectedReservation({...selectedReservation});
       }
+      
+      // Now call the API to update the server
+      const result = await updateReservationStatus(reservationId, newStatus);
+      console.log('Update status result:', result);
       
       // Refresh reservation stats
       fetchReservationStats();
       
       notify(`Reservation #${reservationId} status updated to ${newStatus}`, 'success');
     } catch (error) {
+      console.error('Error updating reservation status:', error);
       notify(`Error updating reservation status: ${error.message}`, 'error');
+      
+      // If the update failed, refresh the data to ensure we're in sync
+      fetchReservations();
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -291,7 +315,7 @@ function ReservationManagement() {
       case 'Confirmed': return 'status-confirmed';
       case 'Completed': return 'status-completed';
       case 'Cancelled': return 'status-cancelled';
-      case 'No-Show': return 'status-no-show';
+      case 'Pending': return 'status-pending';
       default: return '';
     }
   };
@@ -306,13 +330,141 @@ function ReservationManagement() {
     });
   };
 
+  // Add an event listener for status changes
+  useEffect(() => {
+    // This function will be called when any reservation status is changed
+    const handleStatusChange = (event) => {
+      const { reservationId, status } = event.detail;
+      console.log(`Status change event: Reservation ${reservationId} -> ${status}`);
+      
+      // Update local state immediately to reflect the change
+      setReservations(prevReservations => {
+        const updated = prevReservations.map(reservation => {
+          if ((reservation.reserve_id === reservationId || reservation.reservation_id === reservationId)) {
+            // Create a new object for this reservation
+            return {...reservation};
+          }
+          return reservation;
+        });
+        return updated;
+      });
+      
+      // Also update the filtered reservations
+      setFilteredReservations(prevFiltered => {
+        return prevFiltered.map(reservation => {
+          if ((reservation.reserve_id === reservationId || reservation.reservation_id === reservationId)) {
+            // Create a new object for this reservation
+            return {...reservation};
+          }
+          return reservation;
+        });
+      });
+      
+      // Also update the selected reservation if it's being viewed
+      if (selectedReservation && 
+          (selectedReservation.reserve_id === reservationId || 
+           selectedReservation.reservation_id === reservationId)) {
+        setSelectedReservation({...selectedReservation});
+      }
+    };
+    
+    // Register the event listener
+    window.addEventListener('reservationStatusChanged', handleStatusChange);
+    
+    // Clean up the event listener on component unmount
+    return () => {
+      window.removeEventListener('reservationStatusChanged', handleStatusChange);
+    };
+  }, [selectedReservation]); // Only depend on selectedReservation to avoid infinite loops
+
+  // Create a component to force re-render on status change
+  function ReservationRow({ reservation, onViewDetails, onStatusChange }) {
+    // Use a state variable to force re-renders when status changes
+    const [currentStatus, setCurrentStatus] = useState(getReservationStatus(reservation));
+    
+    // Listen for status changes for this reservation
+    useEffect(() => {
+      const handleStatusChange = (event) => {
+        const { reservationId, status } = event.detail;
+        if (reservation.reserve_id === reservationId || reservation.reservation_id === reservationId) {
+          setCurrentStatus(status);
+        }
+      };
+      
+      window.addEventListener('reservationStatusChanged', handleStatusChange);
+      return () => {
+        window.removeEventListener('reservationStatusChanged', handleStatusChange);
+      };
+    }, [reservation]);
+    
+    // Also update when reservation changes
+    useEffect(() => {
+      setCurrentStatus(getReservationStatus(reservation));
+    }, [reservation]);
+    
+    return (
+      <tr key={reservation.reserve_id || reservation.reservation_id}>
+        <td>{reservation.reserve_id || reservation.reservation_id}</td>
+        <td>
+          {reservation.customer_name || 
+            (reservation.first_name || reservation.last_name ? 
+              `${reservation.first_name || ''} ${reservation.last_name || ''}`.trim() : 
+              `User ${reservation.user_id}` || 'Guest')}
+        </td>
+        <td>Table {reservation.table_no}</td>
+        <td>{formatDate(reservation.date_time)}</td>
+        <td>{reservation.guests || reservation.capacity || 'N/A'}</td>
+        <td>
+          <span className={`status-badge ${getStatusClass(currentStatus)}`}>
+            {currentStatus}
+          </span>
+        </td>
+        <td>
+          <div className="reservation-actions">
+            <button 
+              className="view-btn"
+              onClick={() => onViewDetails(reservation)}
+            >
+              View Details
+            </button>
+            
+            <select 
+              className="status-update-select"
+              value={currentStatus}
+              onChange={(e) => onStatusChange(
+                reservation.reserve_id || reservation.reservation_id, 
+                e.target.value
+              )}
+            >
+              <option value="Pending">Pending</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <div className="dashboard-container">
       <Sidebar />
       <main className="dashboard-content">
         <Header title="Table Reservations" />
         
-        {/* Server Status Notifier - disabled for this page */}
+        {/* Server Status Notifier */}
+        {isServerDown && (
+          <div className="server-status-notification warning">
+            <p>
+              <strong>Notice:</strong> Unable to connect to the server. 
+              Showing mock data. Real reservation data might differ.
+            </p>
+            <button onClick={handleRetryConnection}>
+              Retry Connection
+            </button>
+          </div>
+        )}
         
         <div className="reservations-overview">
           <div className="reservation-stat-card upcoming">
@@ -346,14 +498,14 @@ function ReservationManagement() {
           <div className="filter-options">
             <select 
               name="status" 
-              value={filters.status}
+              value={filters.status}  
               onChange={handleFilterChange}
             >
               <option value="">All Statuses</option>
+              <option value="Pending">Pending</option>
               <option value="Confirmed">Confirmed</option>
               <option value="Completed">Completed</option>
               <option value="Cancelled">Cancelled</option>
-              <option value="No-Show">No-Show</option>
             </select>
             
             {/* Date filters */}
@@ -365,7 +517,7 @@ function ReservationManagement() {
                 onChange={handleDateFilterChange}
                 placeholder="Start Date"
               />
-              <span>to</span>
+              <span>to</span>  
               <input
                 type="date"
                 name="endDate"
@@ -400,47 +552,12 @@ function ReservationManagement() {
               <tbody>
                 {filteredReservations.length > 0 ? (
                   filteredReservations.map((reservation) => (
-                    <tr key={reservation.reserve_id || reservation.reservation_id}>
-                      <td>{reservation.reserve_id || reservation.reservation_id}</td>
-                      <td>
-                        {reservation.customer_name || 
-                         (reservation.first_name || reservation.last_name ? 
-                          `${reservation.first_name || ''} ${reservation.last_name || ''}`.trim() : 
-                          `User ${reservation.user_id}` || 'Guest')}
-                      </td>
-                      <td>Table {reservation.table_no}</td>
-                      <td>{formatDate(reservation.date_time)}</td>
-                      <td>{reservation.guests || reservation.capacity || 'N/A'}</td>
-                      <td>
-                        <span className={`status-badge ${getStatusClass(reservation.status || 'Confirmed')}`}>
-                          {reservation.status || 'Confirmed'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="reservation-actions">
-                          <button 
-                            className="view-btn"
-                            onClick={() => handleViewDetails(reservation)}
-                          >
-                            View Details
-                          </button>
-                          
-                          <select 
-                            className="status-update-select"
-                            value={reservation.status || 'Confirmed'}
-                            onChange={(e) => handleUpdateStatus(
-                              reservation.reserve_id || reservation.reservation_id, 
-                              e.target.value
-                            )}
-                          >
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Cancelled">Cancelled</option>
-                            <option value="No-Show">No-Show</option>
-                          </select>
-                        </div>
-                      </td>
-                    </tr>
+                    <ReservationRow 
+                      key={reservation.reserve_id || reservation.reservation_id}
+                      reservation={reservation}
+                      onViewDetails={handleViewDetails}
+                      onStatusChange={handleUpdateStatus}
+                    />
                   ))
                 ) : (
                   <tr>
@@ -510,7 +627,6 @@ function ReservationManagement() {
                     <p><strong>Phone:</strong> {selectedReservation.phone_number || 'N/A'}</p>
                   </div>
                 </div>
-                
                 {selectedReservation.special_requests && (
                   <div className="special-requests-section">
                     <h3>Special Requests</h3>
@@ -520,7 +636,7 @@ function ReservationManagement() {
                 
                 <div className="reservation-actions-footer">
                   <select 
-                    value={selectedReservation.status || 'Confirmed'}
+                    value={selectedReservation.status || 'Pending'}
                     onChange={(e) => {
                       handleUpdateStatus(
                         selectedReservation.reserve_id || selectedReservation.reservation_id, 
@@ -529,16 +645,15 @@ function ReservationManagement() {
                       setSelectedReservation({...selectedReservation, status: e.target.value});
                     }}
                   >
+                    <option value="Pending">Pending</option>
                     <option value="Confirmed">Confirmed</option>
                     <option value="Completed">Completed</option>
                     <option value="Cancelled">Cancelled</option>
-                    <option value="No-Show">No-Show</option>
                   </select>
                   
                   <button className="print-reservation-btn">
                     Print Details
                   </button>
-                  
                   <button 
                     className="close-details-btn"
                     onClick={() => setIsDetailsModalOpen(false)}

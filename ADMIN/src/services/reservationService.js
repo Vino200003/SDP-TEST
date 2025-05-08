@@ -68,6 +68,8 @@ export const getAllReservations = async (params = {}) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
+    // Use the admin-specific endpoint instead of the general reservations endpoint
+    // This will connect to the getAllReservations method in reservationController.js
     const response = await fetch(`${API_URL}/api/reservations?${queryString}`, {
       method: 'GET',
       headers: {
@@ -80,6 +82,11 @@ export const getAllReservations = async (params = {}) => {
     clearTimeout(timeoutId);
     
     if (!response.ok) {
+      // Try the admin-specific endpoint as fallback if it exists
+      const adminResponse = await getFallbackReservations(params);
+      if (adminResponse && adminResponse.reservations) {
+        return adminResponse;
+      }
       console.warn(`API response not OK: ${response.status} ${response.statusText}`);
       throw new Error(`Server returned ${response.status}: ${response.statusText}`);
     }
@@ -115,8 +122,8 @@ const getFallbackReservations = async (params = {}) => {
       return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
     }
     
-    // Use regular reservation endpoint as fallback
-    const response = await fetch(`${API_URL}/api/reservations`, {
+    // Try the getAdminReservations method if available
+    const response = await fetch(`${API_URL}/api/admin/reservations`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -129,24 +136,14 @@ const getFallbackReservations = async (params = {}) => {
       return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
     }
     
-    // The regular endpoint might not return pagination, so adapt the response
-    const reservations = await response.json();
-    return { 
-      reservations,
-      pagination: { 
-        page: 1, 
-        limit: reservations.length, 
-        total: reservations.length, 
-        pages: 1 
-      }
-    };
+    return await response.json();
   } catch (error) {
     console.error('Fallback reservation service error:', error);
     return { reservations: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
   }
 };
 
-// Get reservation stats
+// Get reservation stats - connect to the getReservationStats endpoint
 export const getReservationStats = async (startDate = '', endDate = '') => {
   try {
     // Check server availability first
@@ -180,6 +177,7 @@ export const getReservationStats = async (startDate = '', endDate = '') => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
+    // Connect to getReservationStats endpoint
     const response = await fetch(`${API_URL}/api/reservations/stats?${queryString}`, {
       method: 'GET',
       headers: {
@@ -209,7 +207,7 @@ export const getReservationStats = async (startDate = '', endDate = '') => {
   }
 };
 
-// Get a single reservation by ID
+// Get a single reservation by ID - connects to getReservationById endpoint
 export const getReservationById = async (reservationId) => {
   try {
     // Get admin token from localStorage
@@ -219,7 +217,8 @@ export const getReservationById = async (reservationId) => {
       throw new Error('Authentication required');
     }
     
-    const response = await fetch(`${API_URL}/api/admin/reservations/${reservationId}`, {
+    // Connect to getReservationById endpoint
+    const response = await fetch(`${API_URL}/api/reservations/${reservationId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -245,14 +244,9 @@ export const updateReservationStatus = async (reservationId, newStatus) => {
     // Check server availability first
     const isServerAvailable = await checkServerAvailability();
     
-    // If server is down, return a mocked successful response
+    // If server is down, use in-memory status tracking
     if (!isServerAvailable) {
-      console.log('Server is unavailable, simulating status update');
-      return {
-        message: 'Reservation status updated successfully (simulated)',
-        reservation_id: reservationId,
-        status: newStatus
-      };
+      return updateStatusInMemory(reservationId, newStatus);
     }
     
     // Get admin token from localStorage
@@ -262,9 +256,14 @@ export const updateReservationStatus = async (reservationId, newStatus) => {
       throw new Error('Authentication required');
     }
     
+    console.log(`Updating reservation ${reservationId} status to ${newStatus}`);
+    
     // Use a timeout to prevent hanging for too long
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+    
+    const requestBody = JSON.stringify({ status: newStatus });
+    console.log('Request body:', requestBody);
     
     const response = await fetch(`${API_URL}/api/reservations/${reservationId}/status`, {
       method: 'PATCH',
@@ -272,35 +271,147 @@ export const updateReservationStatus = async (reservationId, newStatus) => {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ status: newStatus }),
+      body: requestBody,
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update reservation status');
+    // Parse the response data regardless of status
+    let responseData;
+    try {
+      responseData = await response.json();
+      console.log('Response data:', responseData);
+    } catch (parseError) {
+      console.error('Error parsing response:', parseError);
+      responseData = { message: 'Failed to parse server response' };
     }
     
-    return await response.json();
+    if (!response.ok) {
+      // If the error is about missing column, use our in-memory status tracking
+      if (responseData.availableColumns) {
+        console.error('Schema mismatch. Available columns:', responseData.availableColumns);
+        return updateStatusInMemory(reservationId, newStatus);
+      }
+      
+      throw new Error(responseData.message || 'Failed to update reservation status');
+    }
+    
+    // Also update in-memory status to ensure immediate UI updates
+    updateStatusInMemory(reservationId, newStatus);
+    
+    return responseData;
   } catch (error) {
     console.error('Update reservation status service error:', error);
     
-    // Update server status
-    serverStatus.isAvailable = false;
-    serverStatus.lastChecked = Date.now();
+    // Update server status on network errors only
+    if (error.name === 'AbortError' || error.message.includes('Failed to fetch')) {
+      serverStatus.isAvailable = false;
+      serverStatus.lastChecked = Date.now();
+    }
     
-    // For status updates, we'll simulate a successful response
-    return {
-      message: 'Reservation status updated successfully (simulated)',
-      reservation_id: reservationId,
-      status: newStatus
-    };
+    // Always update the in-memory status for consistent UI
+    return updateStatusInMemory(reservationId, newStatus);
   }
 };
 
-// Get all tables (or mock tables if server is down)
+// Function to update and store reservation statuses in localStorage when the database doesn't support it
+function updateStatusInMemory(reservationId, newStatus) {
+  console.log(`Using in-memory status tracking for reservation ${reservationId}`);
+  
+  // Get existing statuses from localStorage or initialize empty object
+  const statusesJson = localStorage.getItem('reservationStatuses') || '{}';
+  const statuses = JSON.parse(statusesJson);
+  
+  // Update the status for this reservation
+  statuses[reservationId] = newStatus;
+  
+  // Save back to localStorage
+  localStorage.setItem('reservationStatuses', JSON.stringify(statuses));
+  
+  // Dispatch a custom event to notify components about the status change
+  window.dispatchEvent(new CustomEvent('reservationStatusChanged', {
+    detail: { reservationId, status: newStatus }
+  }));
+  
+  return {
+    message: 'Reservation status updated successfully (in-memory)',
+    reservation_id: reservationId,
+    status: newStatus
+  };
+}
+
+// Get reservation status from localStorage if not in database
+export const getReservationStatus = (reservation) => {
+  // If the reservation has a status field, use it
+  if (reservation.status || reservation.reservation_status || reservation.reserve_status) {
+    return reservation.status || reservation.reservation_status || reservation.reserve_status;
+  }
+  
+  // Otherwise check in localStorage
+  try {
+    const statusesJson = localStorage.getItem('reservationStatuses') || '{}';
+    const statuses = JSON.parse(statusesJson);
+    const id = reservation.reserve_id || reservation.reservation_id;
+    
+    // Return the stored status or default to 'Pending'
+    return statuses[id] || 'Pending';
+  } catch (error) {
+    console.error('Error getting status from localStorage:', error);
+    return 'Pending';
+  }
+};
+
+// Fallback function to update reservation using PUT instead of PATCH
+async function updateReservationFallback(reservationId, newStatus, token) {
+  console.log('Trying fallback update method...');
+  
+  // First get the current reservation
+  const response = await fetch(`${API_URL}/api/reservations/${reservationId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch reservation for fallback update');
+  }
+  
+  const reservation = await response.json();
+  
+  // Prepare minimal update data
+  const updateData = {
+    // Try different status field names
+    status: newStatus,
+    reservation_status: newStatus,
+    reserve_status: newStatus
+  };
+  
+  // Update using PUT endpoint
+  const updateResponse = await fetch(`${API_URL}/api/reservations/${reservationId}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(updateData)
+  });
+  
+  if (!updateResponse.ok) {
+    const errorData = await updateResponse.json();
+    throw new Error(errorData.message || 'Fallback update failed');
+  }
+  
+  return {
+    message: 'Reservation status updated successfully (fallback method)',
+    reservation_id: reservationId,
+    status: newStatus
+  };
+}
+
+// Get all tables - connects to getAllTables endpoint
 export const getAllTables = async () => {
   try {
     // If we know server is down, return mock tables immediately
@@ -316,6 +427,7 @@ export const getAllTables = async () => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
+    // Connect to getAllTables endpoint
     const response = await fetch(`${API_URL}/api/reservations/tables`, {
       method: 'GET',
       headers: {

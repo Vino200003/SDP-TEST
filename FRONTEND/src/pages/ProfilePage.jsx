@@ -9,7 +9,12 @@ import {
   getOrderDetails,
   updateOrder,
   getAllMenuItems,
-  cancelOrder
+  cancelOrder,
+  // Add these imports for reservation functionality
+  getAllTables,
+  getAvailableTables,
+  updateReservation,
+  cancelReservation
 } from '../utils/api';
 import '../styles/ProfilePage.css';
 
@@ -256,33 +261,6 @@ const ProfilePage = () => {
     return `LKR ${parseFloat(price).toFixed(2)}`;
   };
 
-  // Add this function to handle reservation cancellation
-  const handleCancelReservation = async (reservationId) => {
-    if (window.confirm('Are you sure you want to cancel this reservation?')) {
-      try {
-        setIsLoadingReservations(true);
-        
-        // For now, just use a simple approach without an actual API call
-        console.log('Cancelling reservation:', reservationId);
-        
-        // Simulate an API delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Remove the reservation from the local state
-        setReservations(prev => prev.filter(res => res.reserve_id !== reservationId));
-        
-        setIsLoadingReservations(false);
-        setSubmitSuccess(true);
-        setTimeout(() => setSubmitSuccess(false), 3000);
-      } catch (err) {
-        console.error('Failed to cancel reservation:', err);
-        setIsLoadingReservations(false);
-        setSubmitError('Failed to cancel reservation. Please try again.');
-        setTimeout(() => setSubmitError(''), 5000);
-      }
-    }
-  };
-
   // Add function to open order details modal
   const handleViewOrderDetails = async (order) => {
     try {
@@ -316,6 +294,195 @@ const ProfilePage = () => {
       console.error('Error fetching order details:', err);
       setSubmitError('Could not load order details. Please try again.');
       setIsLoading(false);
+    }
+  };
+
+  // Add state for reservation editing
+  const [isEditingReservation, setIsEditingReservation] = useState(false);
+  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [editedReservationData, setEditedReservationData] = useState({});
+  const [availableTables, setAvailableTables] = useState([]);
+  const [availableTimes, setAvailableTimes] = useState([]);
+  const [isLoadingAvailabilities, setIsLoadingAvailabilities] = useState(false);
+  const [showReservationModal, setShowReservationModal] = useState(false);
+
+  // Add function to open reservation edit modal
+  const handleEditReservation = async (reservation) => {
+    try {
+      setIsLoadingAvailabilities(true);
+      setSelectedReservation(reservation);
+      
+      // Initialize edited data with current values
+      const reservationDate = new Date(reservation.date_time);
+      setEditedReservationData({
+        date: reservationDate.toISOString().split('T')[0],
+        time: `${reservationDate.getHours()}:${String(reservationDate.getMinutes()).padStart(2, '0')}`,
+        table_no: reservation.table_no,
+        special_requests: reservation.special_requests || ''
+      });
+      
+      // Generate available times
+      const times = generateTimeSlots(reservationDate.toISOString().split('T')[0]);
+      setAvailableTimes(times);
+      
+      // Fetch available tables
+      try {
+        const tablesData = await getAllTables();
+        console.log("Fetched tables for editing:", tablesData);
+        setAvailableTables(tablesData);
+      } catch (tablesError) {
+        console.error("Error fetching tables:", tablesError);
+        setSubmitError("Could not load tables. Please try again.");
+      }
+      
+      setShowReservationModal(true);
+      setIsLoadingAvailabilities(false);
+    } catch (err) {
+      console.error('Error preparing reservation edit:', err);
+      setSubmitError('Could not load reservation details. Please try again.');
+      setIsLoadingAvailabilities(false);
+    }
+  };
+
+  // Generate time slots (11:00 AM to 9:00 PM, 30-minute intervals)
+  const generateTimeSlots = (selectedDate) => {
+    const slots = [];
+    const currentDate = new Date();
+    const reservationDate = new Date(selectedDate);
+    
+    // Check if selected date is today
+    const isToday = 
+      currentDate.getDate() === reservationDate.getDate() &&
+      currentDate.getMonth() === reservationDate.getMonth() &&
+      currentDate.getFullYear() === reservationDate.getFullYear();
+    
+    // Restaurant hours
+    let startHour = 11; // 11:00 AM
+    const endHour = 21; // 9:00 PM
+    
+    // If today, only show times after current time plus 1 hour buffer
+    if (isToday) {
+      const currentHour = currentDate.getHours();
+      startHour = Math.max(startHour, currentHour + 1);
+    }
+    
+    for (let hour = startHour; hour < endHour; hour++) {
+      // Add half-hour slots
+      slots.push(`${hour}:00`);
+      slots.push(`${hour}:30`);
+    }
+    
+    return slots;
+  };
+
+  // Handle change in reservation edit form
+  const handleReservationFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditedReservationData({
+      ...editedReservationData,
+      [name]: value
+    });
+  };
+
+  // Handle reservation update submission
+  const handleUpdateReservation = async (e) => {
+    e.preventDefault();
+    
+    try {
+      setIsLoading(true);
+      setSubmitError('');
+      
+      // Check if user is logged in
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setSubmitError('You must be logged in to update a reservation');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Get user data for logging
+      const userData = JSON.parse(localStorage.getItem('user')) || {};
+      console.log('Current user:', userData);
+      
+      // Create a date object for the reservation date and time
+      const [hours, minutes] = editedReservationData.time.split(':');
+      const reservationDate = new Date(editedReservationData.date);
+      reservationDate.setHours(parseInt(hours, 10));
+      reservationDate.setMinutes(parseInt(minutes, 10));
+      
+      // Prepare data for API
+      const updatedReservationData = {
+        table_no: parseInt(editedReservationData.table_no, 10),
+        date_time: reservationDate.toISOString(),
+        special_requests: editedReservationData.special_requests || '',
+        user_id: userData.id || userData.user_id // Include user_id for verification
+      };
+      
+      console.log('Updating reservation with data:', updatedReservationData);
+      console.log('Reservation ID:', selectedReservation.reserve_id);
+      
+      // Call API to update reservation
+      await updateReservation(selectedReservation.reserve_id, updatedReservationData);
+      
+      // Close modal and refresh reservations
+      setShowReservationModal(false);
+      setSelectedReservation(null);
+      
+      // Refresh the reservations list
+      const refreshedReservations = await getUserReservations();
+      setReservations(refreshedReservations);
+      
+      setIsLoading(false);
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error updating reservation:', err);
+      setSubmitError(err.message || 'Failed to update reservation. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  // Add function to close reservation modal
+  const handleCloseReservationModal = () => {
+    setShowReservationModal(false);
+    setSelectedReservation(null);
+    setEditedReservationData({});
+  };
+
+  // Add function to format time for display (convert 24h to 12h format)
+  const formatTimeDisplay = (time24h) => {
+    if (!time24h) return '';
+    
+    const [hours, minutes] = time24h.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+  
+  // REPLACE the existing handleCancelReservation function with this implementation
+  const handleCancelReservation = async (reservationId) => {
+    if (window.confirm('Are you sure you want to cancel this reservation?')) {
+      try {
+        setIsLoadingReservations(true);
+        setSubmitError('');
+        
+        // Call API to cancel reservation
+        await cancelReservation(reservationId);
+        
+        // Update UI by removing the cancelled reservation
+        setReservations(prev => prev.filter(res => res.reserve_id !== reservationId));
+        
+        setIsLoadingReservations(false);
+        setSubmitSuccess(true);
+        setTimeout(() => setSubmitSuccess(false), 3000);
+      } catch (err) {
+        console.error('Failed to cancel reservation:', err);
+        setIsLoadingReservations(false);
+        setSubmitError(err.message || 'Failed to cancel reservation. Please try again.');
+        setTimeout(() => setSubmitError(''), 5000);
+      }
     }
   };
 
@@ -1088,45 +1255,33 @@ const ProfilePage = () => {
                   </div>
                   
                   {reservations.map(reservation => {
-                    const reservationDate = new Date(reservation.date_time);
-                    const isPast = reservationDate < new Date();
-                    const status = isPast ? 'Completed' : 'Confirmed';
+                    // Ensure reservation status defaults to 'Pending' if not set
+                    const status = reservation.status || 'Pending';
                     return (
                       <div key={reservation.reserve_id} className="reservation-item">
                         <div className="reservation-id">#{reservation.reserve_id}</div>
                         <div className="reservation-date">{formatDate(reservation.date_time)}</div>
                         <div className="reservation-time">{formatTime(reservation.date_time)}</div>
-                        <div className="reservation-table">
-                          Table {reservation.table_no}
-                          {reservation.capacity ? ` (seats ${reservation.capacity})` : ''}
-                          {/* Only show location if it exists */}
-                        </div>
+                        <div className="reservation-guests">Table {reservation.table_no}</div>
                         <div className={`reservation-status status-${status.toLowerCase()}`}>
                           {status}
                         </div>
                         <div className="reservation-actions">
-                          <button 
-                            className="view-reservation-details"
-                            onClick={() => {
-                              alert(`
-                                Reservation Details:
-                                Date: ${formatDate(reservation.date_time)}
-                                Time: ${formatTime(reservation.date_time)}
-                                Table: ${reservation.table_no}
-                                ${reservation.capacity ? `Capacity: ${reservation.capacity} people` : ''}
-                                ${reservation.special_requests ? `Special Requests: ${reservation.special_requests}` : 'No special requests'}
-                              `);
-                            }}
-                          >
-                            <i className="fas fa-eye"></i> View
-                          </button>
-                          {!isPast && (
-                            <button 
-                              className="cancel-reservation-btn"
-                              onClick={() => handleCancelReservation(reservation.reserve_id)}
-                            >
-                              <i className="fas fa-times"></i> Cancel
-                            </button>
+                          {reservation.status === 'Pending' && (
+                            <>
+                              <button 
+                                className="edit-reservation-btn"
+                                onClick={() => handleEditReservation(reservation)}
+                              >
+                                <i className="fas fa-edit"></i> Edit
+                              </button>
+                              <button 
+                                className="cancel-reservation-btn"
+                                onClick={() => handleCancelReservation(reservation.reserve_id)}
+                              >
+                                <i className="fas fa-times"></i> Cancel
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -1191,6 +1346,103 @@ const ProfilePage = () => {
         </div>
       )}
       
+      {/* Inside the render function, add the reservation modal */}
+      {showReservationModal && selectedReservation && (
+        <div className="modal-overlay">
+          <div className="modal-content reservation-edit-modal">
+            <div className="modal-header">
+              <h2>Edit Reservation</h2>
+              <button className="close-btn" onClick={handleCloseReservationModal}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              {isLoadingAvailabilities ? (
+                <div style={{textAlign: 'center', padding: '20px'}}>
+                  <div className="loading-spinner" style={{margin: '0 auto 10px'}}></div>
+                  <p>Loading reservation details...</p>
+                </div>
+              ) : (
+                <form onSubmit={handleUpdateReservation} className="reservation-edit-form">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label htmlFor="date">Date</label>
+                      <input
+                        type="date"
+                        id="date"
+                        name="date"
+                        value={editedReservationData.date}
+                        onChange={handleReservationFormChange}
+                        min={new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="time">Time</label>
+                      <select
+                        id="time"
+                        name="time"
+                        value={editedReservationData.time}
+                        onChange={handleReservationFormChange}
+                        required
+                      >
+                        <option value="">Select a time</option>
+                        {availableTimes.map((time, index) => (
+                          <option key={index} value={time}>
+                            {formatTimeDisplay(time)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="table_no">Table</label>
+                    <select
+                      id="table_no"
+                      name="table_no"
+                      value={editedReservationData.table_no}
+                      onChange={handleReservationFormChange}
+                      required
+                    >
+                      <option value="">Select a table</option>
+                      {availableTables.map((table) => (
+                        <option key={table.table_no} value={table.table_no}>
+                          Table {table.table_no} - {table.capacity} {table.capacity === 1 ? 'person' : 'people'} 
+                          {table.location ? ` (${table.location})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="special_requests">Special Requests (Optional)</label>
+                    <textarea
+                      id="special_requests"
+                      name="special_requests"
+                      value={editedReservationData.special_requests}
+                      onChange={handleReservationFormChange}
+                      placeholder="Enter any special requests or requirements"
+                      rows="3"
+                    ></textarea>
+                  </div>
+                </form>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={handleCloseReservationModal}>
+                Cancel
+              </button>
+              <button 
+                className="save-btn" 
+                onClick={handleUpdateReservation}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Updating...' : 'Update Reservation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

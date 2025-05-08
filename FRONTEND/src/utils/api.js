@@ -413,6 +413,51 @@ export const getUserReservations = async () => {
 };
 
 /**
+ * Update a user reservation
+ * @param {number} reservationId - The ID of the reservation to update
+ * @param {Object} reservationData - Updated reservation data
+ * @returns {Promise} - Response from the API
+ */
+export const updateReservation = async (reservationId, reservationData) => {
+  try {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    console.log('Using token for reservation update:', token);
+    
+    // Use both authorization headers to ensure compatibility
+    const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token,
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(reservationData),
+      credentials: 'include'
+    });
+    
+    // Log response status for debugging
+    console.log('Reservation update response status:', response.status);
+    
+    const data = await response.json();
+    console.log('Reservation update response data:', data);
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Failed to update reservation');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('API error updating reservation:', error);
+    throw error;
+  }
+};
+
+/**
  * Cancel a reservation
  * @param {number} reservationId - The ID of the reservation to cancel
  * @returns {Promise} - Response from the API
@@ -425,12 +470,15 @@ export const cancelReservation = async (reservationId) => {
       throw new Error('Authentication required');
     }
     
+    // Use both authorization headers for better compatibility
     const response = await fetch(`${API_URL}/reservations/${reservationId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
-      }
+        'x-auth-token': token,
+        'Authorization': `Bearer ${token}`
+      },
+      credentials: 'include'
     });
     
     const data = await response.json();

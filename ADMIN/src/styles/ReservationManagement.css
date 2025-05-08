@@ -227,6 +227,11 @@
   color: #4361ee;
 }
 
+.status-pending {
+  background-color: #fff8e6;
+  color: #f39c12;
+}
+
 .status-completed {
   background-color: #e6f7ed;
   color: #28a745;
