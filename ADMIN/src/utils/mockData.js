@@ -181,3 +181,173 @@ export const generateMockStats = (reservations) => {
     cancelled_reservations: cancelled
   };
 };
+
+// Mock inventory data updated to match the revised database schema
+export const mockInventoryItems = [
+  {
+    inventory_id: 1,
+    name: "Rice",
+    quantity: 50.0,
+    unit: "kg",
+    price_per_unit: 120.50,
+    manu_date: "2023-09-15",
+    exp_date: "2024-09-15",
+    purchase_date: "2023-10-01",
+    batch_no: "BR2023-001",
+    status: "available",
+    supplier_id: 1
+  },
+  {
+    inventory_id: 2,
+    name: "Chicken",
+    quantity: 25.5,
+    unit: "kg",
+    price_per_unit: 450.00,
+    manu_date: "2023-11-01",
+    exp_date: "2023-11-15",
+    purchase_date: "2023-11-02",
+    batch_no: "CH2023-112",
+    status: "available",
+    supplier_id: 2
+  },
+  {
+    inventory_id: 3,
+    name: "Tomatoes",
+    quantity: 15.75,
+    unit: "kg",
+    price_per_unit: 180.25,
+    manu_date: "2023-11-05",
+    exp_date: "2023-11-20",
+    purchase_date: "2023-11-06",
+    batch_no: "TM2023-045",
+    status: "available",
+    supplier_id: 3
+  },
+  {
+    inventory_id: 4,
+    name: "Olive Oil",
+    quantity: 10.0,
+    unit: "L",
+    price_per_unit: 850.00,
+    manu_date: "2023-06-10",
+    exp_date: "2024-06-10",
+    purchase_date: "2023-07-15",
+    batch_no: "OL2023-007",
+    status: "available",
+    supplier_id: 4
+  },
+  {
+    inventory_id: 5,
+    name: "Flour",
+    quantity: 2.5,
+    unit: "kg",
+    price_per_unit: 95.50,
+    manu_date: "2023-08-10",
+    exp_date: "2024-02-10",
+    purchase_date: "2023-09-01",
+    batch_no: "FL2023-089",
+    status: "not_available",
+    supplier_id: 5
+  },
+  {
+    inventory_id: 6,
+    name: "Sugar",
+    quantity: 8.0,
+    unit: "kg",
+    price_per_unit: 110.00,
+    manu_date: "2023-07-15",
+    exp_date: "2024-07-15",
+    purchase_date: "2023-08-01",
+    batch_no: "SG2023-067",
+    status: "available",
+    supplier_id: 5
+  },
+  {
+    inventory_id: 7,
+    name: "Potatoes",
+    quantity: 40.5,
+    unit: "kg",
+    price_per_unit: 120.00,
+    manu_date: "2023-10-20",
+    exp_date: "2023-12-20",
+    purchase_date: "2023-10-22",
+    batch_no: "PT2023-102",
+    status: "available",
+    supplier_id: 3
+  },
+  {
+    inventory_id: 8,
+    name: "Milk",
+    quantity: 0.0,
+    unit: "L",
+    price_per_unit: 160.00,
+    manu_date: "2023-11-01",
+    exp_date: "2023-11-10",
+    purchase_date: "2023-11-02",
+    batch_no: "ML2023-115",
+    status: "not_available",
+    supplier_id: 6
+  },
+  {
+    inventory_id: 9,
+    name: "Black Pepper",
+    quantity: 1.2,
+    unit: "kg",
+    price_per_unit: 1200.00,
+    manu_date: "2023-05-10",
+    exp_date: "2024-05-10",
+    purchase_date: "2023-06-01",
+    batch_no: "BP2023-034",
+    status: "available",
+    supplier_id: 7
+  },
+  {
+    inventory_id: 10,
+    name: "Cheese",
+    quantity: 3.0,
+    unit: "kg",
+    price_per_unit: 950.00,
+    manu_date: "2023-10-25",
+    exp_date: "2023-11-25",
+    purchase_date: "2023-10-27",
+    batch_no: "CH2023-108",
+    status: "available",
+    supplier_id: 6
+  }
+];
+
+export const mockInventoryCategories = [
+  { id: 1, name: "Grains" },
+  { id: 2, name: "Meat" },
+  { id: 3, name: "Vegetables" },
+  { id: 4, name: "Fruits" },
+  { id: 5, name: "Dairy" },
+  { id: 6, name: "Spices" },
+  { id: 7, name: "Baking" },
+  { id: 8, name: "Oils" },
+  { id: 9, name: "Beverages" }
+];
+
+export const mockSuppliers = [
+  { supplier_id: 1, name: "Quality Foods Ltd", contact_number: "0112345678", email: "info@qualityfoods.com", address: "123 Main St, Colombo" },
+  { supplier_id: 2, name: "Fresh Farms Inc", contact_number: "0775566778", email: "orders@freshfarms.lk", address: "45 Farm Road, Kandy" },
+  { supplier_id: 3, name: "Green Harvest Ltd", contact_number: "0114567890", email: "sales@greenharvest.com", address: "78 Garden Ave, Galle" },
+  { supplier_id: 4, name: "Mediterranean Imports", contact_number: "0776655443", email: "imports@mediterranean.lk", address: "90 Import Drive, Colombo" },
+  { supplier_id: 5, name: "Bakers Supply Co", contact_number: "0112223344", email: "supply@bakerssupply.com", address: "12 Baker Street, Negombo" },
+  { supplier_id: 6, name: "Dairy Delights", contact_number: "0778889900", email: "orders@dairydelights.lk", address: "34 Dairy Road, Jaffna" },
+  { supplier_id: 7, name: "Spice Traders", contact_number: "0114443322", email: "sales@spicetraders.com", address: "56 Spice Lane, Matara" }
+];
+
+export const generateMockInventoryStats = () => {
+  const totalItems = mockInventoryItems.length;
+  const availableItems = mockInventoryItems.filter(item => item.status === 'available').length;
+  const notAvailableItems = mockInventoryItems.filter(item => item.status === 'not_available').length;
+  const expiredItems = mockInventoryItems.filter(item => item.status === 'expired').length;
+  
+  return {
+    total_items: totalItems,
+    available: availableItems,
+    not_available: notAvailableItems,
+    expired: expiredItems
+  };
+};

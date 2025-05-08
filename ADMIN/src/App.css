@@ -6,6 +6,47 @@
   text-align: left;
 }
 
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow-x: hidden;
+}
+
+.sidebar {
+  position: fixed;
+  height: 100vh;
+  width: 220px;
+  background-color: #343a40;
+  color: white;
+  z-index: 100; /* Ensure sidebar is above content but below modals */
+  overflow-y: auto;
+}
+
+main {
+  margin-left: 220px;
+  width: calc(100% - 220px);
+  padding: 1rem;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  main {
+    margin-left: 0;
+    width: 100%;
+  }
+  
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+}
+
 .logo {
   height: 6em;
   padding: 1.5em;
