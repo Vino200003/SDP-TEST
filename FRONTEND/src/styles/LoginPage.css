@@ -200,6 +200,23 @@
   text-align: center;
 }
 
+.info-message {
+  background-color: #e7f3fe;
+  color: #0c5460;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  border-left: 5px solid #3498db;
+  display: flex;
+  align-items: center;
+}
+
+.info-message::before {
+  content: 'ℹ️';
+  margin-right: 10px;
+  font-size: 1.2rem;
+}
+
 /* Media Queries */
 @media screen and (max-width: 768px) {
   .login-header {

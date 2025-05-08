@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { loginUser } from '../utils/api';
 import Footer from '../components/Footer';
 import '../styles/LoginPage.css';
 
 const LoginPage = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get redirect message from location state if available
+  const [redirectMessage, setRedirectMessage] = useState('');
+  
   // Form state
   const [formData, setFormData] = useState({
     email: '',
@@ -105,6 +112,15 @@ const LoginPage = () => {
     }
   };
 
+  // Check for redirect message on component mount
+  useEffect(() => {
+    if (location.state?.message) {
+      setRedirectMessage(location.state.message);
+      // Remove the message after displaying it so it doesn't persist on page refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
   return (
     <div className="login-page">
       <div className="login-header">
@@ -118,6 +134,12 @@ const LoginPage = () => {
       <div className="login-container">
         <div className="login-form-container">
           <h1>Sign In</h1>
+          
+          {redirectMessage && (
+            <div className="info-message">
+              {redirectMessage}
+            </div>
+          )}
           
           {submitSuccess && (
             <div className="success-message">

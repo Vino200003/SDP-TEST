@@ -69,22 +69,64 @@ export const loginUser = async (credentials) => {
 };
 
 /**
+ * Check if a token is valid (not expired)
+ * @param {string} token - JWT token to check
+ * @returns {boolean} - True if token appears valid
+ */
+const isTokenValid = (token) => {
+  if (!token) return false;
+  
+  try {
+    // Basic check for JWT format
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    
+    // Check expiration
+    const payload = JSON.parse(atob(parts[1]));
+    const exp = payload.exp;
+    const now = Math.floor(Date.now() / 1000);
+    
+    return exp > now;
+  } catch (error) {
+    console.error('Error checking token validity:', error);
+    return false;
+  }
+};
+
+/**
+ * Get valid authentication token or clear invalid ones
+ * @returns {string|null} - Valid token or null
+ */
+const getAuthToken = () => {
+  const token = localStorage.getItem('token');
+  
+  if (!token || !isTokenValid(token)) {
+    // Clear invalid token
+    localStorage.removeItem('token');
+    return null;
+  }
+  
+  return token;
+};
+
+/**
  * Check authentication status
  * @returns {Promise} - Response with user data if authenticated
  */
 export const checkAuth = async () => {
   try {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error('No valid authentication token found');
     }
     
     const response = await fetch(`${API_URL}/users/me`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`,
+        'x-auth-token': token  // Keep for backward compatibility
       },
       credentials: 'include'
     });
@@ -300,20 +342,29 @@ export const createReservation = async (reservationData) => {
  */
 export const getUserProfile = async () => {
   try {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error('No valid authentication token found');
     }
+    
+    console.log('Fetching profile with token:', token.substring(0, 15) + '...');
     
     const response = await fetch(`${API_URL}/users/profile`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`,
+        'x-auth-token': token  // Keep for backward compatibility
       },
       credentials: 'include'
     });
+    
+    if (response.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem('token');
+      throw new Error('Your session has expired. Please login again.');
+    }
     
     const data = await response.json();
     
@@ -335,17 +386,18 @@ export const getUserProfile = async () => {
  */
 export const updateUserProfile = async (profileData) => {
   try {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     
     if (!token) {
-      throw new Error('No authentication token found');
+      throw new Error('No valid authentication token found');
     }
     
     const response = await fetch(`${API_URL}/users/profile`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`,
+        'x-auth-token': token  // Keep for backward compatibility
       },
       body: JSON.stringify(profileData),
       credentials: 'include'

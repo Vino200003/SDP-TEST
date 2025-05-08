@@ -74,14 +74,30 @@ const ProfilePage = () => {
         const token = localStorage.getItem('token');
         if (!token) {
           // Redirect to login if not logged in
-          navigate('/login');
+          navigate('/login', { state: { from: '/profile', message: 'Please login to view your profile' } });
           return;
         }
         
         // Fetch user profile data
-        const data = await getUserProfile();
-        setUserData(data);
-        setIsLoading(false);
+        try {
+          const data = await getUserProfile();
+          setUserData(data);
+          setIsLoading(false);
+        } catch (err) {
+          console.error('Failed to fetch user data:', err);
+          
+          // If we get unauthorized error, redirect to login
+          if (err.message.includes('session has expired') || err.message.includes('token')) {
+            // Clear any existing token
+            localStorage.removeItem('token');
+            // Redirect to login
+            navigate('/login', { state: { from: '/profile', message: 'Your session has expired. Please login again.' } });
+            return;
+          }
+          
+          setError('Failed to load your profile data. Please try again later.');
+          setIsLoading(false);
+        }
       } catch (err) {
         console.error('Failed to fetch user data:', err);
         setError('Failed to load your profile data. Please try again later.');
