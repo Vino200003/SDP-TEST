@@ -419,7 +419,9 @@ export const getAllTables = async () => {
       return Array.from({ length: 10 }, (_, i) => ({
         table_no: i + 1,
         capacity: Math.floor(Math.random() * 6) + 2,
-        status: 'Available'
+        status: Math.random() > 0.7 ? 'Reserved' : 'Available',
+        is_active: Math.random() > 0.1, // Most tables are active
+        current_status: Math.random() > 0.7 ? 'Reserved' : 'Available'
       }));
     }
     
@@ -459,8 +461,133 @@ export const getAllTables = async () => {
     return Array.from({ length: 10 }, (_, i) => ({
       table_no: i + 1,
       capacity: Math.floor(Math.random() * 6) + 2,
-      status: 'Available'
+      status: Math.random() > 0.7 ? 'Reserved' : 'Available',
+      is_active: Math.random() > 0.1, // Most tables are active
+      current_status: Math.random() > 0.7 ? 'Reserved' : 'Available'
     }));
+  }
+};
+
+// Create a new table
+export const createNewTable = async (tableData) => {
+  try {
+    // Get admin token from localStorage
+    const token = localStorage.getItem('adminToken');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`${API_URL}/api/reservations/tables`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(tableData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create table');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Create table error:', error);
+    throw error;
+  }
+};
+
+// Update table status
+export const updateTableStatus = async (tableNo, newStatus) => {
+  try {
+    // Get admin token from localStorage
+    const token = localStorage.getItem('adminToken');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`${API_URL}/api/reservations/tables/${tableNo}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: newStatus })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update table status');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Update table status error:', error);
+    throw error;
+  }
+};
+
+// Set table active status
+export const setTableActiveStatus = async (tableNo, isActive) => {
+  try {
+    // Get admin token from localStorage
+    const token = localStorage.getItem('adminToken');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+    
+    const response = await fetch(`${API_URL}/api/reservations/tables/${tableNo}/active`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ isActive })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update table active status');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Set table active status error:', error);
+    throw error;
+  }
+};
+
+// Check table availability at a specific date and time
+export const checkTablesAvailability = async (dateTime) => {
+  try {
+    // For reliability, we'll use mock data by default
+    const tables = await getAllTables();
+    
+    // Mock availability based on the time of day
+    const checkDate = new Date(dateTime);
+    const hour = checkDate.getHours();
+    
+    // Determine busyness based on time of day
+    // Busy hours: 12-2pm (lunch) and 6-8pm (dinner)
+    const isPeakHour = (hour >= 12 && hour <= 14) || (hour >= 18 && hour <= 20);
+    const isWeekend = checkDate.getDay() === 0 || checkDate.getDay() === 6;
+    const busynessFactor = isPeakHour ? (isWeekend ? 0.8 : 0.6) : 0.3;
+    
+    const mockAvailability = {};
+    tables.forEach(table => {
+      // More tables reserved during peak hours
+      mockAvailability[table.table_no] = Math.random() > busynessFactor ? 'Available' : 'Reserved';
+    });
+    
+    return mockAvailability;
+  } catch (error) {
+    console.error('Error checking tables availability:', error);
+    // Return empty map on error
+    return {};
   }
 };
 

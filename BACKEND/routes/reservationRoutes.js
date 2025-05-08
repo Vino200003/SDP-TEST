@@ -19,9 +19,11 @@ router.get('/stats', auth, reservationController.getReservationStats);
 router.get('/:id', auth, reservationController.getReservationById);
 router.put('/:id', auth, reservationController.updateReservation);
 router.delete('/:id', auth, reservationController.deleteReservation);
-
-// Ensure this route exists and is properly defined with correct authentication
-// This is the route that's causing the 500 error
 router.patch('/:id/status', auth, reservationController.updateReservationStatus);
+
+// Table management routes (protected)
+router.post('/tables', auth, reservationController.createTable);
+router.patch('/tables/:tableNo/status', auth, reservationController.updateTableStatus);
+router.patch('/tables/:tableNo/active', auth, reservationController.setTableActiveStatus);
 
 module.exports = router;

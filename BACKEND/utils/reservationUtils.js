@@ -16,12 +16,13 @@ exports.isDateTimeAvailable = (tableNo, dateTime, excludeReservationId = null) =
     // Convert date to string for comparison
     const requestedDate = dateTime.toISOString().slice(0, 19).replace('T', ' ');
     
-    // We'll consider a 2-hour window for each reservation
-    // So a table is unavailable if there's an existing reservation within 2 hours before or after
+    // Stricter validation: Only allow one reservation per table per time slot
+    // We don't allow overlapping time slots within 2 hours of each other
     let query = `
       SELECT COUNT(*) AS count 
       FROM reservations 
       WHERE table_no = ? 
+      AND status NOT IN ('Cancelled', 'No-Show')
       AND ABS(TIMESTAMPDIFF(MINUTE, date_time, ?)) < 120
     `;
     
@@ -33,16 +34,56 @@ exports.isDateTimeAvailable = (tableNo, dateTime, excludeReservationId = null) =
       params.push(excludeReservationId);
     }
     
+    console.log('Checking table availability with query:', query);
+    console.log('Query params:', params);
+    
     db.query(query, params, (err, results) => {
       if (err) {
+        console.error('Database error checking availability:', err);
         reject(err);
         return;
       }
+      
+      console.log('Availability check results:', results);
       
       // If count is 0, the table is available
       resolve(results[0].count === 0);
     });
   });
+};
+
+/**
+ * Check if a given time slot is generally available in the restaurant
+ * @param {Date} dateTime - Date and time to check
+ * @returns {boolean} - True if the time is generally available, false otherwise
+ */
+exports.isTimeSlotAvailable = (dateTime) => {
+  // Convert to date object if string was provided
+  const checkDate = new Date(dateTime);
+  
+  // Get day of week (0 = Sunday, 6 = Saturday)
+  const day = checkDate.getDay();
+  
+  // Get hours and minutes
+  const hours = checkDate.getHours();
+  const minutes = checkDate.getMinutes();
+  
+  // Convert to 24-hour time value for easy comparison (e.g., 13:30 = 13.5)
+  const timeValue = hours + (minutes / 60);
+  
+  // Check if within business hours (example: 11:00 AM to 10:00 PM)
+  const openTime = 11; // 11:00 AM
+  const closeTime = 22; // 10:00 PM
+  
+  // Check if the day is a weekday or weekend
+  const isWeekend = day === 0 || day === 6;
+  
+  // Weekend might have different hours
+  const adjustedOpenTime = isWeekend ? 10 : openTime; // Open earlier on weekends
+  const adjustedCloseTime = isWeekend ? 23 : closeTime; // Close later on weekends
+  
+  // Check if time is within business hours
+  return timeValue >= adjustedOpenTime && timeValue <= adjustedCloseTime;
 };
 
 /**
@@ -52,25 +93,63 @@ exports.isDateTimeAvailable = (tableNo, dateTime, excludeReservationId = null) =
  */
 exports.getAvailableTables = (dateTime) => {
   return new Promise((resolve, reject) => {
-    // Get all tables
-    db.query('SELECT * FROM tables ORDER BY table_no', async (err, tables) => {
+    // Get all tables that are active
+    db.query('SELECT * FROM tables WHERE is_active = TRUE ORDER BY table_no', async (err, tables) => {
       if (err) {
         reject(err);
         return;
       }
       
       try {
-        // Check availability for each table
-        const tablesWithAvailability = await Promise.all(tables.map(async (table) => {
-          const isAvailable = await exports.isDateTimeAvailable(table.table_no, dateTime);
+        // Format date for query
+        const requestedDate = dateTime.toISOString().slice(0, 19).replace('T', ' ');
+        
+        // Use a single query to get all reserved tables within 2 hours window
+        const reservationsQuery = `
+          SELECT table_no
+          FROM reservations 
+          WHERE status NOT IN ('Cancelled', 'No-Show')
+          AND ABS(TIMESTAMPDIFF(MINUTE, date_time, ?)) < 120
+        `;
+        
+        console.log(`Checking reservations near ${requestedDate}`);
+        
+        const reservedTables = await new Promise((resolveReservations, rejectReservations) => {
+          db.query(reservationsQuery, [requestedDate], (reservationErr, reservationResults) => {
+            if (reservationErr) {
+              console.error("DB error checking existing reservations:", reservationErr);
+              rejectReservations(reservationErr);
+              return;
+            }
+            
+            // Create a Set of reserved table numbers for quick lookups
+            const reservedTableSet = new Set();
+            
+            if (reservationResults && reservationResults.length > 0) {
+              reservationResults.forEach(row => {
+                console.log(`Table ${row.table_no} is reserved`);
+                reservedTableSet.add(row.table_no);
+              });
+            }
+            
+            resolveReservations(reservedTableSet);
+          });
+        });
+        
+        // Mark tables as available only if they're not in the reserved set
+        const tablesWithAvailability = tables.map(table => {
+          const isAvailable = !reservedTables.has(table.table_no);
           return {
             ...table,
-            available: isAvailable
+            available: isAvailable,
+            reservation_status: isAvailable ? 'Available' : 'Reserved'
           };
-        }));
+        });
         
+        console.log(`Processed ${tables.length} tables, ${tablesWithAvailability.filter(t => t.available).length} available`);
         resolve(tablesWithAvailability);
       } catch (error) {
+        console.error("Error determining table availability:", error);
         reject(error);
       }
     });
@@ -108,13 +187,13 @@ exports.getReservationsByDate = (date) => {
 };
 
 /**
- * Check if a table exists
+ * Check if a table exists and is active
  * @param {number} tableNo - Table number to check
- * @returns {Promise<boolean>} - True if the table exists, false otherwise
+ * @returns {Promise<boolean>} - True if the table exists and is active, false otherwise
  */
 exports.tableExists = (tableNo) => {
   return new Promise((resolve, reject) => {
-    db.query('SELECT 1 FROM tables WHERE table_no = ?', [tableNo], (err, results) => {
+    db.query('SELECT 1 FROM tables WHERE table_no = ? AND is_active = TRUE', [tableNo], (err, results) => {
       if (err) {
         reject(err);
         return;
@@ -223,6 +302,87 @@ exports.getReservationsWithFilters = (options = {}) => {
             pages
           }
         });
+      });
+    });
+  });
+};
+
+/**
+ * Get all tables with their current status
+ * @returns {Promise<Array>} - Array of all tables with their status
+ */
+exports.getAllTables = () => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT t.*, 
+             CASE 
+               WHEN EXISTS (
+                 SELECT 1 FROM reservations r 
+                 WHERE r.table_no = t.table_no 
+                 AND r.status IN ('Pending', 'Confirmed')
+                 AND ABS(TIMESTAMPDIFF(MINUTE, r.date_time, NOW())) < 120
+               ) THEN 'Reserved' 
+               ELSE t.status 
+             END as current_status
+      FROM tables t
+      ORDER BY t.table_no
+    `;
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      resolve(results);
+    });
+  });
+};
+
+/**
+ * Update table status
+ * @param {number} tableNo - Table number to update
+ * @param {string} status - New status ('Available' or 'Reserved')
+ * @returns {Promise<Object>} - Result of the update operation
+ */
+exports.updateTableStatus = (tableNo, status) => {
+  return new Promise((resolve, reject) => {
+    if (!['Available', 'Reserved'].includes(status)) {
+      reject(new Error('Invalid status. Must be either Available or Reserved'));
+      return;
+    }
+    
+    db.query('UPDATE tables SET status = ? WHERE table_no = ?', [status, tableNo], (err, result) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      resolve({
+        message: `Table ${tableNo} status updated to ${status}`,
+        affectedRows: result.affectedRows
+      });
+    });
+  });
+};
+
+/**
+ * Toggle table active status
+ * @param {number} tableNo - Table number to update
+ * @param {boolean} isActive - Whether the table should be active or not
+ * @returns {Promise<Object>} - Result of the update operation
+ */
+exports.setTableActiveStatus = (tableNo, isActive) => {
+  return new Promise((resolve, reject) => {
+    db.query('UPDATE tables SET is_active = ? WHERE table_no = ?', [isActive, tableNo], (err, result) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      
+      resolve({
+        message: `Table ${tableNo} is now ${isActive ? 'active' : 'inactive'}`,
+        affectedRows: result.affectedRows
       });
     });
   });

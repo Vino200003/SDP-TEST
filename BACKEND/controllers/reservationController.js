@@ -1,7 +1,6 @@
 const db = require('../config/db');
-const { isDateTimeAvailable, getAvailableTables } = require('../utils/reservationUtils');
+const { isDateTimeAvailable, getAvailableTables, getAllTables, updateTableStatus, setTableActiveStatus } = require('../utils/reservationUtils');
 const jwt = require('jsonwebtoken');
-
 
  //Get all reservations (admin only)
  
@@ -269,9 +268,9 @@ exports.createReservation = async (req, res) => {
       return res.status(400).json({ message: 'Reservation date must be in the future' });
     }
     
-    // Check if the table exists
+    // Check if the table exists and is active
     const tableExists = await new Promise((resolve, reject) => {
-      db.query('SELECT * FROM tables WHERE table_no = ?', [table_no], (err, results) => {
+      db.query('SELECT * FROM tables WHERE table_no = ? AND is_active = TRUE', [table_no], (err, results) => {
         if (err) {
           reject(err);
           return;
@@ -281,15 +280,57 @@ exports.createReservation = async (req, res) => {
     });
     
     if (!tableExists) {
-      return res.status(400).json({ message: 'Invalid table number' });
+      return res.status(400).json({ message: 'Invalid or inactive table number' });
     }
     
-    // Check if the table is available at the requested time
-    const isAvailable = await isDateTimeAvailable(table_no, reservationDateTime);
+    console.log(`Checking availability for table ${table_no} at ${reservationDateTime}`);
     
-    if (!isAvailable) {
-      return res.status(400).json({ 
-        message: 'This table is not available at the requested time' 
+    // Explicit check for existing reservations at the same time for this table
+    const hasExistingReservation = await new Promise((resolve, reject) => {
+      // Look for any non-cancelled reservations within 2 hours of requested time
+      const query = `
+        SELECT COUNT(*) AS count 
+        FROM reservations 
+        WHERE table_no = ? 
+        AND status NOT IN ('Cancelled', 'No-Show') 
+        AND ABS(TIMESTAMPDIFF(MINUTE, date_time, ?)) < 120
+      `;
+      
+      db.query(query, [table_no, reservationDateTime], (err, results) => {
+        if (err) {
+          console.error("DB error checking existing reservations:", err);
+          reject(err);
+          return;
+        }
+        
+        console.log("Existing reservation check results:", results[0].count);
+        resolve(results[0].count > 0);
+      });
+    });
+    
+    if (hasExistingReservation) {
+      // Format date as "Wednesday, May 28, 2025"
+      const formattedDate = reservationDateTime.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric'
+      });
+      
+      // Format time as "04:00 PM"
+      const formattedTime = reservationDateTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      const errorMessage = `Table ${table_no} is already reserved for ${formattedDate} at ${formattedTime}. Please select a different table or choose another time slot.`;
+      
+      console.log(`Reservation conflict: ${errorMessage}`);
+      
+      return res.status(409).json({ 
+        message: errorMessage,
+        error_code: 'TABLE_ALREADY_RESERVED'
       });
     }
     
@@ -473,25 +514,85 @@ exports.deleteReservation = (req, res) => {
  */
 exports.getAllTables = (req, res) => {
   try {
-    db.query('SELECT * FROM tables ORDER BY table_no', (err, results) => {
-      if (err) {
-        console.error('Error fetching tables:', err);
-        return res.status(500).json({ 
+    // Use the new utility function that includes current status
+    getAllTables()
+      .then(tables => {
+        res.json(tables);
+      })
+      .catch(error => {
+        console.error('Error fetching tables:', error);
+        res.status(500).json({ 
           message: 'Error fetching tables', 
-          error: err.message 
+          error: error.message 
         });
-      }
-      
-      // Send all tables to the client
-      res.json(results);
-    });
+      });
   } catch (error) {
     console.error('Server error in getAllTables:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
+/**
+ * Update table status
+ */
+exports.updateTableStatus = (req, res) => {
+  try {
+    const { tableNo } = req.params;
+    const { status } = req.body;
+    
+    // Validate input
+    if (!tableNo || !status) {
+      return res.status(400).json({ message: 'Table number and status are required' });
+    }
+    
+    // Update the table status
+    updateTableStatus(parseInt(tableNo), status)
+      .then(result => {
+        res.json(result);
+      })
+      .catch(error => {
+        console.error('Error updating table status:', error);
+        res.status(500).json({ 
+          message: 'Error updating table status', 
+          error: error.message 
+        });
+      });
+  } catch (error) {
+    console.error('Server error in updateTableStatus:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
+/**
+ * Set table active status
+ */
+exports.setTableActiveStatus = (req, res) => {
+  try {
+    const { tableNo } = req.params;
+    const { isActive } = req.body;
+    
+    // Validate input
+    if (!tableNo || isActive === undefined) {
+      return res.status(400).json({ message: 'Table number and isActive status are required' });
+    }
+    
+    // Update the table active status
+    setTableActiveStatus(parseInt(tableNo), Boolean(isActive))
+      .then(result => {
+        res.json(result);
+      })
+      .catch(error => {
+        console.error('Error updating table active status:', error);
+        res.status(500).json({ 
+          message: 'Error updating table active status', 
+          error: error.message 
+        });
+      });
+  } catch (error) {
+    console.error('Server error in setTableActiveStatus:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 /**
  * Check available tables for a given date/time
@@ -504,12 +605,32 @@ exports.getAvailableTablesForDateTime = async (req, res) => {
       return res.status(400).json({ message: 'Date and time are required' });
     }
     
-    const requestedDateTime = new Date(dateTime);
+    // Handle potential invalid date
+    let requestedDateTime;
+    try {
+      requestedDateTime = new Date(dateTime);
+      if (isNaN(requestedDateTime.getTime())) {
+        return res.status(400).json({ message: 'Invalid date format' });
+      }
+    } catch (dateError) {
+      console.error('Error parsing date:', dateError);
+      return res.status(400).json({ message: 'Invalid date format' });
+    }
     
-    // Get available tables - no authentication required
-    const availableTables = await getAvailableTables(requestedDateTime);
+    console.log('Checking available tables for:', requestedDateTime);
     
-    res.json(availableTables);
+    try {
+      // Get available tables - no authentication required
+      const availableTables = await getAvailableTables(requestedDateTime);
+      
+      res.json(availableTables);
+    } catch (availabilityError) {
+      console.error('Error getting available tables:', availabilityError);
+      res.status(500).json({ 
+        message: 'Error checking table availability', 
+        error: availabilityError.message 
+      });
+    }
   } catch (error) {
     console.error('Server error in getAvailableTablesForDateTime:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -686,7 +807,6 @@ exports.getReservationStats = async (req, res) => {
 
 
 
-
 /**
  * Update reservation status (admin only)
  */
@@ -791,5 +911,49 @@ exports.updateReservationStatus = async (req, res) => {
       message: 'Failed to update reservation status', 
       error: error.message 
     });
+  }
+};
+
+/**
+ * Create a new table
+ */
+exports.createTable = (req, res) => {
+  try {
+    const { capacity, status, is_active } = req.body;
+    
+    // Validate input
+    if (!capacity || capacity < 1) {
+      return res.status(400).json({ message: 'Table capacity is required and must be greater than 0' });
+    }
+    
+    // Prepare the table data
+    const tableData = {
+      capacity,
+      status: status || 'Available', // Set default status if not provided
+      is_active: is_active !== undefined ? is_active : true
+    };
+    
+    // Insert the new table
+    db.query('INSERT INTO tables SET ?', tableData, (err, result) => {
+      if (err) {
+        console.error('Error creating table:', err);
+        return res.status(500).json({ 
+          message: 'Error creating table', 
+          error: err.message 
+        });
+      }
+      
+      res.status(201).json({
+        message: 'Table created successfully',
+        table_no: result.insertId,
+        table: {
+          ...tableData,
+          table_no: result.insertId
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Server error in createTable:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

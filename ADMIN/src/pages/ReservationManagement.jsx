@@ -6,7 +6,12 @@ import {
   updateReservationStatus, 
   getReservationStats,
   checkServerConnection,
-  getReservationStatus // Import the new helper function
+  getReservationStatus,
+  getAllTables,
+  updateTableStatus,
+  setTableActiveStatus,
+  createNewTable,
+  checkTablesAvailability  // Add this import
 } from '../services/reservationService';
 import { serverStatus } from '../utils/mockData';
 import '../styles/ReservationManagement.css';
@@ -456,6 +461,277 @@ function ReservationManagement() {
     );
   }
 
+  // Add state for tables
+  const [tables, setTables] = useState([]);
+  const [showTableManager, setShowTableManager] = useState(false);
+  const [showAddTableForm, setShowAddTableForm] = useState(false);
+  const [newTableData, setNewTableData] = useState({
+    capacity: 2,
+    is_active: true
+  });
+  
+  // Add state for availability checking in the manage tables section
+  const [availabilityCheck, setAvailabilityCheck] = useState({
+    checkDate: new Date().toISOString().split('T')[0], // Today's date
+    checkTime: '19:00', // Default time (7:00 PM)
+    isChecking: false
+  });
+
+  // Add state to store availability results for all tables
+  const [tablesAvailability, setTablesAvailability] = useState({});
+  
+  // Fetch tables on component mount
+  useEffect(() => {
+    fetchTables();
+  }, []);
+  
+  // Fetch tables function
+  const fetchTables = async () => {
+    try {
+      const tablesData = await getAllTables();
+      setTables(tablesData);
+    } catch (error) {
+      console.error('Error fetching tables:', error);
+      notify(`Error fetching tables: ${error.message}`, 'error');
+    }
+  };
+  
+  // Handle input change for availability check
+  const handleAvailabilityCheckChange = (e) => {
+    const { name, value } = e.target;
+    setAvailabilityCheck(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  // Check all tables availability based on selected date and time
+  const checkAllTablesAvailability = async () => {
+    try {
+      setAvailabilityCheck(prev => ({ ...prev, isChecking: true }));
+      
+      // Combine date and time
+      const { checkDate, checkTime } = availabilityCheck;
+      const dateTimeString = `${checkDate}T${checkTime}:00`;
+      
+      // Check if valid date
+      const checkDateTime = new Date(dateTimeString);
+      if (isNaN(checkDateTime.getTime())) {
+        notify('Invalid date or time selected.', 'error');
+        return;
+      }
+      
+      // Use our service function to get availability
+      const availabilityMap = await checkTablesAvailability(dateTimeString);
+      setTablesAvailability(availabilityMap);
+      
+      notify('Tables availability updated for the selected time', 'success');
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      notify('Error checking availability. Please try again.', 'error');
+    } finally {
+      setAvailabilityCheck(prev => ({ ...prev, isChecking: false }));
+    }
+  };
+  
+  // Handle input change for new table form
+  const handleNewTableInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    const updatedValue = type === 'checkbox' ? checked : value;
+    
+    setNewTableData(prev => ({
+      ...prev,
+      [name]: updatedValue
+    }));
+  };
+  
+  // Handle submit new table
+  const handleSubmitNewTable = async (e) => {
+    e.preventDefault();
+    try {
+      setIsLoading(true);
+      
+      // Validate data
+      if (newTableData.capacity < 1) {
+        notify('Table capacity must be greater than 0', 'error');
+        return;
+      }
+      
+      // Format data properly
+      const tableData = {
+        capacity: parseInt(newTableData.capacity),
+        status: 'Available',
+        is_active: newTableData.is_active
+      };
+      
+      // Call API to create new table
+      const result = await createNewTable(tableData);
+      
+      // Reset form
+      setNewTableData({
+        capacity: 2,
+        is_active: true
+      });
+      
+      // Hide form
+      setShowAddTableForm(false);
+      
+      // Refresh tables
+      fetchTables();
+      
+      notify(`Table #${result.table_no} created successfully`, 'success');
+    } catch (error) {
+      console.error('Error creating table:', error);
+      notify(`Error creating table: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add this function to handle toggling the active status
+  const handleTableActiveStatusUpdate = async (tableNo, isActive) => {
+    try {
+      // Show loading state
+      setIsLoading(true);
+      
+      // Call the API to update the table's active status
+      await setTableActiveStatus(tableNo, isActive);
+      
+      // Update the local state to reflect the change
+      setTables(prevTables => 
+        prevTables.map(table => 
+          table.table_no === tableNo 
+            ? { ...table, is_active: isActive } 
+            : table
+        )
+      );
+      
+      // Show success message
+      notify(`Table ${tableNo} is now ${isActive ? 'active' : 'inactive'}`, 'success');
+    } catch (error) {
+      console.error('Error updating table active status:', error);
+      notify(`Error updating table: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update the Table Manager Modal component
+  const TableManagerModal = () => {
+    return (
+      <div className="modal-overlay">
+        <div className="modal-content">
+          <div className="modal-header">
+            <h2>Table Manager</h2>
+            <button 
+              className="close-modal-btn"
+              onClick={() => setShowTableManager(false)}
+            >
+              &times;
+            </button>
+          </div>
+          <div className="modal-body" style={{ padding: '1.5rem' }}>
+            {/* Add New Table Button */}
+            <div className="add-table-section">
+              <button 
+                className="add-table-btn"
+                onClick={() => setShowAddTableForm(true)}
+              >
+                Add New Table
+              </button>
+            </div>
+            
+            {/* Add New Table Form */}
+            {showAddTableForm && (
+              <div className="add-table-form-container">
+                <h3>Add New Table</h3>
+                <form onSubmit={handleSubmitNewTable} className="add-table-form">
+                  <div className="form-group">
+                    <label htmlFor="capacity">Capacity:</label>
+                    <input 
+                      type="number" 
+                      id="capacity"
+                      name="capacity"
+                      min="1"
+                      max="20"
+                      value={newTableData.capacity}
+                      onChange={handleNewTableInputChange}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label htmlFor="is_active">Status:</label>
+                    <select 
+                      id="is_active"
+                      name="is_active"
+                      value={newTableData.is_active}
+                      onChange={(e) => handleNewTableInputChange({
+                        target: {
+                          name: 'is_active',
+                          value: e.target.value === 'true'
+                        }
+                      })}
+                    >
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
+                  
+                  <div className="form-actions">
+                    <button 
+                      type="button" 
+                      className="cancel-btn"
+                      onClick={() => setShowAddTableForm(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="submit-btn"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? 'Creating...' : 'Create Table'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+            
+            {/* Simplified Tables List with Status column removed */}
+            <table className="tables-table">
+              <thead>
+                <tr>
+                  <th>Table No</th>
+                  <th>Capacity</th>
+                  <th>Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tables.map((table) => (
+                  <tr key={table.table_no} className={!table.is_active ? 'inactive-table' : ''}>
+                    <td>{table.table_no}</td>
+                    <td>{table.capacity}</td>
+                    <td>
+                      <label className="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={table.is_active} 
+                          onChange={() => handleTableActiveStatusUpdate(table.table_no, !table.is_active)}
+                        />
+                        <span className="toggle-slider"></span>
+                      </label>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   return (
     <div className="dashboard-container">
       <Sidebar />
@@ -491,8 +767,18 @@ function ReservationManagement() {
             <h3>Total</h3>
             <p className="stat-number">{reservationStats.total}</p>
           </div>
+          
+          {/* Add Table Management Button */}
+          <div className="table-manager-button">
+            <button 
+              className="manage-tables-btn" 
+              onClick={() => setShowTableManager(true)}
+            >
+              Manage Tables
+            </button>
+          </div>
         </div>
-        
+
         <div className="filters-section">
           <div className="search-bar">
             <div className="search-container">
@@ -509,7 +795,7 @@ function ReservationManagement() {
                 <option value="phone">Phone</option>
                 <option value="table">Table Number</option>
               </select>
-              <input
+              <input 
                 name="searchTerm"
                 value={filters.searchTerm}
                 onChange={handleFilterChange}
@@ -541,7 +827,7 @@ function ReservationManagement() {
                 placeholder="Start Date"
               />
               <span>to</span>
-              <input
+              <input 
                 type="date"
                 name="endDate"
                 value={filters.endDate}
@@ -555,7 +841,6 @@ function ReservationManagement() {
             </button>
           </div>
         </div>
-        
         {isLoading ? (
           <div className="loading">Loading reservations...</div>
         ) : (
@@ -683,6 +968,10 @@ function ReservationManagement() {
             </div>
           </div>
         )}
+        
+        {/* Table Manager Modal */}
+        {showTableManager && <TableManagerModal />}
+        
       </main>
     </div>
   );

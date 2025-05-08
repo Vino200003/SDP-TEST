@@ -539,3 +539,368 @@
     width: 100%;
   }
 }
+
+/* Table Manager Styles */
+.table-manager-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.manage-tables-btn {
+  background-color: #4361ee;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.manage-tables-btn:hover {
+  background-color: #3a56d4;
+}
+
+.tables-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.tables-table th {
+  background-color: #f8f9fa;
+  padding: 0.75rem;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  text-align: left;
+}
+
+.tables-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.tables-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.inactive-table {
+  opacity: 0.6;
+  background-color: #f8f9fa;
+}
+
+.status-available {
+  background-color: #e6f7ed;
+  color: #28a745;
+}
+
+.status-reserved {
+  background-color: #e6f0ff;
+  color: #4361ee;
+}
+
+.status-select {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Toggle Switch for Active Status */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #28a745;
+}
+
+input:focus + .toggle-slider {
+  box-shadow: 0 0 1px #28a745;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(26px);
+}
+
+/* Add Table Styles */
+.add-table-section {
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.add-table-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.add-table-btn:hover {
+  background-color: #218838;
+}
+
+.add-table-form-container {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #dee2e6;
+}
+
+.add-table-form-container h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #495057;
+  font-size: 1.1rem;
+}
+
+.add-table-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.form-group input[type="number"],
+.form-group select {
+  padding: 0.6rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-group label {
+  margin-bottom: 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.cancel-btn,
+.submit-btn {
+  padding: 0.6rem 1.2rem;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn {
+  background-color: #6c757d;
+  color: white;
+}
+
+.cancel-btn:hover {
+  background-color: #5a6268;
+}
+
+.submit-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background-color: #218838;
+}
+
+.submit-btn:disabled {
+  background-color: #74c687;
+  cursor: not-allowed;
+}
+
+/* Availability Checking Styles */
+.check-availability-group {
+  display: flex;
+  align-items: flex-end;
+  margin-top: 0.5rem;
+}
+
+.check-availability-btn {
+  background-color: #4361ee;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.check-availability-btn:hover {
+  background-color: #3a56d4;
+}
+
+.availability-result {
+  grid-column: 1 / -1;
+  padding: 1rem;
+  border-radius: 5px;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.availability-result.available {
+  background-color: #e6f7ed;
+  border: 1px solid #28a745;
+}
+
+.availability-result.unavailable {
+  background-color: #ffe6e6;
+  border: 1px solid #dc3545;
+}
+
+.availability-status {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.availability-message {
+  margin: 0;
+  color: #495057;
+}
+
+/* Availability Checker Styles */
+.availability-checker {
+  background-color: #f8f9fa;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.availability-checker h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #495057;
+  font-size: 1.1rem;
+}
+
+.availability-inputs {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.availability-inputs .form-group {
+  flex: 1;
+  min-width: 180px;
+}
+
+.check-availability-btn {
+  background-color: #4361ee;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  height: 38px;
+}
+
+.check-availability-btn:hover:not(:disabled) {
+  background-color: #3a56d4;
+}
+
+.check-availability-btn:disabled {
+  background-color: #a8b1ff;
+  cursor: not-allowed;
+}
+
+.availability-time-info {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  background-color: #e6f0ff;
+  border-radius: 4px;
+  color: #4361ee;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+/* Add Table Section */
+.add-table-section {
+  margin: 1.5rem 0;
+  display: flex;
+  justify-content: flex-end;
+}

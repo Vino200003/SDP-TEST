@@ -232,6 +232,8 @@ export const getAllTables = async () => {
  */
 export const getAvailableTables = async (dateTime) => {
   try {
+    console.log(`Fetching available tables for ${dateTime}`);
+    
     const response = await fetch(`${API_URL}/reservations/available-tables?dateTime=${encodeURIComponent(dateTime)}`, {
       method: 'GET',
       headers: {
@@ -245,6 +247,7 @@ export const getAvailableTables = async (dateTime) => {
       throw new Error(data.message || 'Failed to fetch available tables');
     }
     
+    console.log(`Retrieved ${data.length} tables with availability information`);
     return data;
   } catch (error) {
     console.error('API error fetching available tables:', error);
@@ -259,24 +262,28 @@ export const getAvailableTables = async (dateTime) => {
  */
 export const createReservation = async (reservationData) => {
   try {
-    const token = localStorage.getItem('token');
-    const headers = {
-      'Content-Type': 'application/json',
-    };
+    console.log('Creating reservation with data:', reservationData);
     
-    if (token) {
-      headers['x-auth-token'] = token;
-    }
+    // Get authentication token from localStorage
+    const token = localStorage.getItem('token');
     
     const response = await fetch(`${API_URL}/reservations`, {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
       body: JSON.stringify(reservationData)
     });
     
     const data = await response.json();
     
     if (!response.ok) {
+      // Enhanced error handling for conflicts and other errors
+      if (response.status === 409) {
+        console.error('Table reservation conflict:', data.message);
+        throw new Error(data.message || 'Sorry, this table is already reserved at the selected time. Please choose a different table or time.');
+      }
       throw new Error(data.message || 'Failed to create reservation');
     }
     

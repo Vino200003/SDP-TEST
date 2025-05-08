@@ -87,9 +87,31 @@ const ReservationPage = () => {
       // Call the API to get available tables
       const availableTablesData = await getAvailableTables(isoDateTime);
       
-      // Filter tables that are available
-      const filteredTables = availableTablesData.filter(table => table.available);
+      // Filter tables that are available - ONLY include tables marked as available
+      const filteredTables = availableTablesData.filter(table => table.available === true);
+      
+      console.log(`Found ${filteredTables.length} available tables out of ${availableTablesData.length} total tables`);
+      
+      // If no tables are available, show a message
+      if (filteredTables.length === 0) {
+        setSubmitError('No tables are available for the selected date and time. Please choose a different time or date.');
+      }
+      
       setAvailableTables(filteredTables);
+      
+      // Reset table selection if the user's previously selected table is no longer available
+      if (formData.table) {
+        const isSelectedTableAvailable = filteredTables.some(table => 
+          table.table_no.toString() === formData.table
+        );
+        
+        if (!isSelectedTableAvailable) {
+          setFormData(prev => ({
+            ...prev,
+            table: ''
+          }));
+        }
+      }
     } catch (error) {
       console.error('Error fetching available tables:', error);
       // Just show the tables we already fetched from getAllTables instead of showing an error
@@ -197,6 +219,48 @@ const ReservationPage = () => {
       return;
     }
     
+    // Double-check availability just before submission
+    if (formData.date && formData.time && formData.table) {
+      try {
+        setIsSubmitting(true); // Start loading state early for better UX
+        
+        // Create an ISO datetime string by combining date and time
+        const [hours, minutes] = formData.time.split(':');
+        const dateObj = new Date(formData.date);
+        dateObj.setHours(parseInt(hours, 10));
+        dateObj.setMinutes(parseInt(minutes, 10));
+        
+        const isoDateTime = dateObj.toISOString();
+        console.log(`Final availability check for table ${formData.table} at ${isoDateTime}`);
+        
+        // Get latest availability data
+        const availableTablesData = await getAvailableTables(isoDateTime);
+        
+        // Find the selected table in the results
+        const selectedTable = availableTablesData.find(
+          table => table.table_no.toString() === formData.table
+        );
+        
+        // If table is not available, show error and abort submission
+        if (!selectedTable || !selectedTable.available) {
+          // Create a clear error message
+          const timeDisplay = formatTimeDisplay(formData.time);
+          const dateDisplay = new Date(formData.date).toLocaleDateString();
+          const tableNo = formData.table;
+          
+          setSubmitError(`Sorry, Table ${tableNo} is already reserved on ${dateDisplay} at ${timeDisplay}. Please select a different table or choose another time.`);
+          
+          setIsSubmitting(false);
+          await fetchAvailableTables(formData.date, formData.time);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+      } catch (error) {
+        console.warn('Error during final availability check:', error);
+        // Continue with submission even if this check fails - the server will validate
+      }
+    }
+    
     setIsSubmitting(true);
     setSubmitError('');
     
@@ -240,7 +304,15 @@ const ReservationPage = () => {
       
     } catch (error) {
       console.error('Reservation error:', error);
+      
+      // Display the error message prominently
       setSubmitError(error.message || 'An error occurred while making your reservation. Please try again.');
+      
+      // If there was an error, refresh the available tables list
+      if (formData.date && formData.time) {
+        await fetchAvailableTables(formData.date, formData.time);
+      }
+      
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSubmitting(false);
@@ -306,8 +378,9 @@ const ReservationPage = () => {
             <h1>Make a Reservation</h1>
             
             {submitError && (
-              <div className="error-message">
-                {submitError}
+              <div className="reservation-error-message">
+                <i className="fas fa-exclamation-triangle"></i>
+                <span>{submitError}</span>
               </div>
             )}
             
@@ -369,12 +442,17 @@ const ReservationPage = () => {
                         <option value="" disabled>Loading available tables...</option>
                       ) : (
                         formData.date && formData.time ? 
-                          availableTables.map((table) => (
-                            <option key={table.table_no} value={table.table_no}>
-                              Table {table.table_no} - {table.capacity} {table.capacity === 1 ? 'person' : 'people'} 
-                              {table.location ? ` (${table.location})` : ''}
-                            </option>
-                          ))
+                          availableTables.length > 0 ? (
+                            // Only show tables that are explicitly marked as available
+                            availableTables.map((table) => (
+                              <option key={table.table_no} value={table.table_no}>
+                                Table {table.table_no} - {table.capacity} {table.capacity === 1 ? 'person' : 'people'} 
+                                {table.location ? ` (${table.location})` : ''}
+                              </option>
+                            ))
+                          ) : (
+                            <option value="" disabled>No tables available at this time</option>
+                          )
                         : 
                           allTables.map((table) => (
                             <option key={table.table_no} value={table.table_no}>
@@ -385,7 +463,11 @@ const ReservationPage = () => {
                       )}
                     </select>
                     {errors.table && <span className="error-text">{errors.table}</span>}
-                    {!formData.time && <span className="help-text">Please select a date and time first</span>}
+                    {formData.date && formData.time && availableTables.length === 0 && (
+                      <span className="error-text">No tables are available for the selected time. Please choose another time slot.</span>
+                    )}
+                    {!formData.time && <span className="help-text">Please select a date and time first</span>
+                    }
                     
                     {formData.table && (
                       <div className="table-info">
