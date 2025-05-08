@@ -105,11 +105,29 @@
   margin-bottom: 1rem;
 }
 
+/* Enhanced Search Bar with Dropdown */
+.search-container {
+  display: flex;
+  width: 100%;
+}
+
+.search-option-select {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ced4da;
+  border-right: none;
+  border-radius: 5px 0 0 5px;
+  font-size: 0.95rem;
+  color: #212529;
+  background-color: #f8f9fa;
+  min-width: 140px;
+  cursor: pointer;
+}
+
 .search-bar input {
   width: 100%;
   padding: 0.75rem 1rem;
   border: 1px solid #ced4da;
-  border-radius: 5px;
+  border-radius: 0 5px 5px 0;
   font-size: 0.95rem;
   color: #212529;
   background-color: white;

@@ -30,13 +30,14 @@ function OrdersManagement() {
   const [filters, setFilters] = useState({
     status: '',
     orderType: '',
+    searchTerm: '',
+    searchOption: 'all', // Add search option for dropdown
+    page: 1,
+    limit: 10,
     dateRange: {
       startDate: '',
       endDate: ''
-    },
-    searchTerm: '',
-    page: 1,
-    limit: 10
+    }
   });
 
   // Simple notification function until react-toastify is installed
@@ -146,33 +147,56 @@ function OrdersManagement() {
 
   const applySearchFilter = () => {
     const searchLower = filters.searchTerm.toLowerCase();
+    const searchOption = filters.searchOption || 'all';
+    
     const result = orders.filter(order => {
-      // Search by order ID
-      if (order.order_id && order.order_id.toString().toLowerCase().includes(searchLower)) {
-        return true;
-      }
+      // If empty search term, return all results
+      if (!searchLower.trim()) return true;
       
-      // Search by user ID
-      if (order.user_id && order.user_id.toString().toLowerCase().includes(searchLower)) {
-        return true;
+      // Search based on the selected option
+      switch (searchOption) {
+        case 'id':
+          return order.order_id?.toString().toLowerCase().includes(searchLower);
+        
+        case 'customer':
+          return order.customer_name?.toLowerCase().includes(searchLower);
+        
+        case 'email':
+          return order.email?.toLowerCase().includes(searchLower);
+        
+        case 'phone':
+          return order.phone_number?.toLowerCase().includes(searchLower);
+        
+        case 'all':
+        default:
+          // Search all fields (original implementation)
+          if (order.order_id && 
+              order.order_id.toString().toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (order.user_id && 
+              order.user_id.toString().toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (order.customer_name && 
+              order.customer_name.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (order.email && 
+              order.email.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (order.phone_number && 
+              order.phone_number.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          return false;
       }
-      
-      // Search by customer name if available
-      if (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      // Search by email if available
-      if (order.email && order.email.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      // Search by phone number if available
-      if (order.phone_number && order.phone_number.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      return false;
     });
     
     setFilteredOrders(result);
@@ -194,13 +218,14 @@ function OrdersManagement() {
     setFilters({
       status: '',
       orderType: '',
+      searchTerm: '',
+      searchOption: 'all', // Reset to 'all'
+      page: 1,
+      limit: 10,
       dateRange: {
         startDate: '',
         endDate: ''
-      },
-      searchTerm: '',
-      page: 1,
-      limit: 10
+      }
     });
   };
 
@@ -307,13 +332,27 @@ function OrdersManagement() {
         
         <div className="filters-section">
           <div className="search-bar">
-            <input
-              type="text"
-              name="searchTerm"
-              value={filters.searchTerm}
-              onChange={handleFilterChange}
-              placeholder="Search orders by ID or customer"
-            />
+            <div className="search-container">
+              <select 
+                name="searchOption" 
+                className="search-option-select"
+                value={filters.searchOption}
+                onChange={handleFilterChange}
+              >
+                <option value="all">All Fields</option>
+                <option value="id">Order ID</option>
+                <option value="customer">Customer Name</option>
+                <option value="email">Email</option>
+                <option value="phone">Phone</option>
+              </select>
+              <input
+                type="text"
+                name="searchTerm"
+                value={filters.searchTerm}
+                onChange={handleFilterChange}
+                placeholder={`Search orders by ${filters.searchOption === 'all' ? 'any field' : filters.searchOption}...`}
+              />
+            </div>
           </div>
           
           <div className="filter-options">
@@ -339,8 +378,6 @@ function OrdersManagement() {
               <option value="Takeaway">Takeaway</option>
               <option value="Delivery">Delivery</option>
             </select>
-            
-            {/* Remove date filters section */}
             
             <button className="reset-filters-btn" onClick={resetFilters}>
               Reset Filters
@@ -458,6 +495,9 @@ function OrdersManagement() {
                   
                   <div className="order-info-group">
                     <h3>Customer Information</h3>
+                    <p><strong>Name:</strong> {selectedOrder.first_name || selectedOrder.last_name ? 
+                      `${selectedOrder.first_name || ''} ${selectedOrder.last_name || ''}`.trim() : 
+                      selectedOrder.customer_name || `User ${selectedOrder.user_id}` || 'Guest'}</p>
                     <p><strong>User ID:</strong> {selectedOrder.user_id || 'Guest'}</p>
                     {selectedOrder.email && <p><strong>Email:</strong> {selectedOrder.email}</p>}
                     {selectedOrder.phone_number && <p><strong>Phone:</strong> {selectedOrder.phone_number}</p>}

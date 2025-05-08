@@ -36,6 +36,7 @@ function ReservationManagement() {
   const [filters, setFilters] = useState({
     status: '',
     searchTerm: '',
+    searchOption: 'all', // Add search option for dropdown
     page: 1,
     limit: 10,
     startDate: '',
@@ -74,7 +75,6 @@ function ReservationManagement() {
         startDate: filters.startDate,
         endDate: filters.endDate
       });
-      
       const data = await getAllReservations({
         page: filters.page,
         limit: filters.limit,
@@ -82,14 +82,11 @@ function ReservationManagement() {
         startDate: filters.startDate,
         endDate: filters.endDate
       });
-      
       // Update server status based on if we got mock data or real data
       setIsServerDown(!serverStatus.isAvailable);
-      
       if (data.reservations) {
         setReservations(data.reservations);
         setFilteredReservations(data.reservations);
-        
         if (data.pagination) {
           setPagination(data.pagination);
         }
@@ -108,15 +105,13 @@ function ReservationManagement() {
   const fetchReservationStats = async () => {
     try {
       const data = await getReservationStats(filters.startDate, filters.endDate);
-      
       // Update server status based on result
       setIsServerDown(!serverStatus.isAvailable);
-      
       setReservationStats({
         total: data.total_reservations || 0,
         upcoming: data.upcoming_reservations || 0,
         completed: data.completed_reservations || 0,
-        cancelled: data.cancelled_reservations || 0
+        cancelled: data.cancelled_reservations || 0,
       });
     } catch (error) {
       console.error('Error fetching reservation stats:', error);
@@ -124,7 +119,7 @@ function ReservationManagement() {
         total: 0,
         upcoming: 0,
         completed: 0,
-        cancelled: 0
+        cancelled: 0,
       });
     }
   };
@@ -134,7 +129,6 @@ function ReservationManagement() {
     console.log('Retrying server connection...');
     const isAvailable = await checkServerConnection();
     setIsServerDown(!isAvailable);
-    
     if (isAvailable) {
       // Refresh data with real data from server
       await fetchReservations();
@@ -156,51 +150,73 @@ function ReservationManagement() {
 
   const applySearchFilter = (reservationsToFilter = reservations) => {
     const searchLower = filters.searchTerm.toLowerCase();
+    const searchOption = filters.searchOption || 'all';
+    
     const result = reservationsToFilter.filter(reservation => {
-      // Search by reservation ID (reserve_id is the field from the backend)
-      if ((reservation.reserve_id || reservation.reservation_id) && 
-          (reservation.reserve_id?.toString().toLowerCase().includes(searchLower) || 
-           reservation.reservation_id?.toString().toLowerCase().includes(searchLower))) {
-        return true;
-      }
+      // If empty search term, return all results
+      if (!searchLower.trim()) return true;
       
-      // Search by user ID
-      if (reservation.user_id && 
-          reservation.user_id.toString().toLowerCase().includes(searchLower)) {
-        return true;
+      // Search based on the selected option
+      switch (searchOption) {
+        case 'id':
+          return (reservation.reserve_id?.toString().toLowerCase().includes(searchLower) || 
+                 reservation.reservation_id?.toString().toLowerCase().includes(searchLower));
+        
+        case 'customer':
+          return (reservation.customer_name?.toLowerCase().includes(searchLower) ||
+                 reservation.first_name?.toLowerCase().includes(searchLower) ||
+                 reservation.last_name?.toLowerCase().includes(searchLower));
+        
+        case 'email':
+          return reservation.email?.toLowerCase().includes(searchLower);
+        
+        case 'phone':
+          return reservation.phone_number?.toLowerCase().includes(searchLower);
+        
+        case 'table':
+          return reservation.table_no?.toString().toLowerCase().includes(searchLower);
+        
+        case 'all':
+        default:
+          // Search all fields (original implementation)
+          if ((reservation.reserve_id || reservation.reservation_id) && 
+              (reservation.reserve_id?.toString().toLowerCase().includes(searchLower) || 
+               reservation.reservation_id?.toString().toLowerCase().includes(searchLower))) {
+            return true;
+          }
+          
+          if (reservation.user_id && 
+              reservation.user_id.toString().toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (reservation.customer_name && 
+              reservation.customer_name.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if ((reservation.first_name && reservation.first_name.toLowerCase().includes(searchLower)) ||
+              (reservation.last_name && reservation.last_name.toLowerCase().includes(searchLower))) {
+            return true;
+          }
+          
+          if (reservation.email && 
+              reservation.email.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (reservation.phone_number && 
+              reservation.phone_number.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          if (reservation.table_no && 
+              reservation.table_no.toString().toLowerCase().includes(searchLower)) {
+            return true;
+          }
+          
+          return false;
       }
-      
-      // Search by customer name
-      if (reservation.customer_name && 
-          reservation.customer_name.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      // Search by first_name or last_name
-      if ((reservation.first_name && reservation.first_name.toLowerCase().includes(searchLower)) ||
-          (reservation.last_name && reservation.last_name.toLowerCase().includes(searchLower))) {
-        return true;
-      }
-      
-      // Search by email
-      if (reservation.email && 
-          reservation.email.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      // Search by phone number
-      if (reservation.phone_number && 
-          reservation.phone_number.toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      // Search by table number
-      if (reservation.table_no && 
-          reservation.table_no.toString().toLowerCase().includes(searchLower)) {
-        return true;
-      }
-      
-      return false;
     });
     
     setFilteredReservations(result);
@@ -208,7 +224,6 @@ function ReservationManagement() {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    
     setFilters({
       ...filters,
       [name]: value,
@@ -230,6 +245,7 @@ function ReservationManagement() {
     setFilters({
       status: '',
       searchTerm: '',
+      searchOption: 'all', // Reset to 'all'
       page: 1,
       limit: 10,
       startDate: '',
@@ -247,13 +263,12 @@ function ReservationManagement() {
     try {
       setIsLoading(true);
       console.log(`Attempting to update reservation ${reservationId} to status ${newStatus}`);
-      
       // Force an immediate update in the UI by updating in-memory first
       const statusesJson = localStorage.getItem('reservationStatuses') || '{}';
       const statuses = JSON.parse(statusesJson);
       statuses[reservationId] = newStatus;
       localStorage.setItem('reservationStatuses', JSON.stringify(statuses));
-      
+
       // Force re-render by creating new objects
       setReservations(prev => {
         return prev.map(r => 
@@ -289,7 +304,6 @@ function ReservationManagement() {
     } catch (error) {
       console.error('Error updating reservation status:', error);
       notify(`Error updating reservation status: ${error.message}`, 'error');
-      
       // If the update failed, refresh the data to ensure we're in sync
       fetchReservations();
     } finally {
@@ -299,7 +313,6 @@ function ReservationManagement() {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    
     const options = { 
       year: 'numeric', 
       month: 'short', 
@@ -323,7 +336,6 @@ function ReservationManagement() {
   // Handle pagination
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > pagination.pages) return;
-    
     setFilters({
       ...filters,
       page: newPage
@@ -336,7 +348,6 @@ function ReservationManagement() {
     const handleStatusChange = (event) => {
       const { reservationId, status } = event.detail;
       console.log(`Status change event: Reservation ${reservationId} -> ${status}`);
-      
       // Update local state immediately to reflect the change
       setReservations(prevReservations => {
         const updated = prevReservations.map(reservation => {
@@ -370,7 +381,6 @@ function ReservationManagement() {
     
     // Register the event listener
     window.addEventListener('reservationStatusChanged', handleStatusChange);
-    
     // Clean up the event listener on component unmount
     return () => {
       window.removeEventListener('reservationStatusChanged', handleStatusChange);
@@ -427,7 +437,6 @@ function ReservationManagement() {
             >
               View Details
             </button>
-            
             <select 
               className="status-update-select"
               value={currentStatus}
@@ -457,8 +466,7 @@ function ReservationManagement() {
         {isServerDown && (
           <div className="server-status-notification warning">
             <p>
-              <strong>Notice:</strong> Unable to connect to the server. 
-              Showing mock data. Real reservation data might differ.
+              <strong>Notice:</strong> Unable to connect to the server. Showing mock data. Real reservation data might differ.
             </p>
             <button onClick={handleRetryConnection}>
               Retry Connection
@@ -487,12 +495,27 @@ function ReservationManagement() {
         
         <div className="filters-section">
           <div className="search-bar">
-            <input
-              name="searchTerm"
-              value={filters.searchTerm}
-              onChange={(e) => handleFilterChange(e)}
-              placeholder="Search by ID, customer, or table number"
-            />
+            <div className="search-container">
+              <select 
+                name="searchOption" 
+                className="search-option-select"
+                value={filters.searchOption}
+                onChange={handleFilterChange}
+              >
+                <option value="all">All Fields</option>
+                <option value="id">Reservation ID</option>
+                <option value="customer">Customer Name</option>
+                <option value="email">Email</option>
+                <option value="phone">Phone</option>
+                <option value="table">Table Number</option>
+              </select>
+              <input
+                name="searchTerm"
+                value={filters.searchTerm}
+                onChange={handleFilterChange}
+                placeholder={`Search by ${filters.searchOption === 'all' ? 'any field' : filters.searchOption}...`}
+              />
+            </div>
           </div>
           
           <div className="filter-options">
@@ -517,7 +540,7 @@ function ReservationManagement() {
                 onChange={handleDateFilterChange}
                 placeholder="Start Date"
               />
-              <span>to</span>  
+              <span>to</span>
               <input
                 type="date"
                 name="endDate"
@@ -562,13 +585,12 @@ function ReservationManagement() {
                 ) : (
                   <tr>
                     <td colSpan="7" className="no-reservations">
-                      No reservations match the current filters
+                      No reservations match the current filters.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-            
             {pagination.pages > 1 && (
               <div className="pagination-controls">
                 <button 
@@ -602,7 +624,6 @@ function ReservationManagement() {
                   &times;
                 </button>
               </div>
-              
               <div className="reservation-details-content">
                 <div className="reservation-info-section">
                   <div className="reservation-info-group">
@@ -613,7 +634,6 @@ function ReservationManagement() {
                     <p><strong>Guests:</strong> {selectedReservation.guests || selectedReservation.capacity || 'N/A'}</p>
                     <p><strong>Created:</strong> {formatDate(selectedReservation.created_at)}</p>
                   </div>
-                  
                   <div className="reservation-info-group">
                     <h3>Customer Information</h3>
                     <p><strong>Name:</strong> 
@@ -633,7 +653,6 @@ function ReservationManagement() {
                     <p>{selectedReservation.special_requests}</p>
                   </div>
                 )}
-                
                 <div className="reservation-actions-footer">
                   <select 
                     value={selectedReservation.status || 'Pending'}
@@ -650,7 +669,6 @@ function ReservationManagement() {
                     <option value="Completed">Completed</option>
                     <option value="Cancelled">Cancelled</option>
                   </select>
-                  
                   <button className="print-reservation-btn">
                     Print Details
                   </button>
