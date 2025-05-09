@@ -8,7 +8,10 @@ import {
   updateInventoryQuantity,
   createInventoryItem,
   updateInventoryItem,
-  deleteInventoryItem
+  deleteInventoryItem,
+  createSupplier,
+  updateSupplier,
+  deleteSupplier
 } from '../services/inventoryService';
 import { serverStatus, checkServerAvailability } from '../utils/mockData';
 import '../styles/InventoryManagement.css';
@@ -58,7 +61,7 @@ function InventoryManagement() {
     search: '',
     status: '',
     supplier_id: '',
-    sortBy: 'name',
+    sortBy: 'inventory_id', // Changed from 'name' to 'inventory_id'
     sortOrder: 'asc',
     page: 1,
     limit: 10
@@ -151,13 +154,24 @@ function InventoryManagement() {
     }
   };
 
+  // Update the fetchSuppliers function to include better error handling and feedback
   const fetchSuppliers = async () => {
     try {
+      setIsLoading(true);
+      console.log('Fetching suppliers...');
       const suppliersData = await getSuppliers();
+      console.log('Suppliers data received:', suppliersData);
       setSuppliers(suppliersData);
+      
+      if (suppliersData.length === 0) {
+        notify('No suppliers found. You may need to add some suppliers.', 'warning');
+      }
     } catch (error) {
       console.error('Error fetching suppliers:', error);
-      notify('Failed to load suppliers. Please try again.', 'error');
+      notify(`Failed to load suppliers: ${error.message}`, 'error');
+      setSuppliers([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -173,6 +187,26 @@ function InventoryManagement() {
       notify('Server connection restored! Using real data now.', 'success');
     } else {
       notify('Server is still unavailable. Continuing with mock data.', 'warning');
+    }
+  };
+
+  const handleRetrySuppliers = async () => {
+    notify('Retrying connection to supplier service...', 'info');
+    setIsLoading(true);
+    
+    try {
+      const isAvailable = await checkServerAvailability();
+      if (isAvailable) {
+        await fetchSuppliers();
+        notify('Successfully connected to supplier service!', 'success');
+      } else {
+        notify('Server is still unavailable. Please try again later.', 'warning');
+      }
+    } catch (error) {
+      console.error('Error in retry:', error);
+      notify('Connection failed. Please check server status.', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -208,7 +242,7 @@ function InventoryManagement() {
       search: '',
       status: '',
       supplier_id: '',
-      sortBy: 'name',
+      sortBy: 'inventory_id', // Changed from 'name' to 'inventory_id'
       sortOrder: 'asc',
       page: 1,
       limit: 10
@@ -305,42 +339,75 @@ function InventoryManagement() {
     }
   };
 
-  // Handle edit item
-  const handleEditItem = async () => {
-    try {
-      // Validate form
-      if (!selectedItem.name || !selectedItem.supplier_id || !selectedItem.unit) {
-        notify('Please fill in all required fields.', 'error');
-        return;
-      }
-      
-      setIsLoading(true);
-      await updateInventoryItem(selectedItem.inventory_id, selectedItem);
-      
-      // Update the item in the list
-      const updatedItems = inventoryItems.map(item => 
-        item.inventory_id === selectedItem.inventory_id 
-          ? selectedItem 
-          : item
-      );
-      
-      setInventoryItems(updatedItems);
-      setFilteredItems(updatedItems);
-      
-      // Close modal
-      setIsEditModalOpen(false);
-      
-      // Refresh stats
-      fetchInventoryStats();
-      
-      notify('Item updated successfully', 'success');
-    } catch (error) {
-      console.error('Error updating item:', error);
-      notify(`Error updating item: ${error.message}`, 'error');
-    } finally {
-      setIsLoading(false);
+  // Improve the handleEditItem function to ensure status is properly included
+const handleEditItem = async () => {
+  try {
+    // Validate form
+    if (!selectedItem.name || !selectedItem.supplier_id || !selectedItem.unit) {
+      notify('Please fill in all required fields.', 'error');
+      return;
     }
-  };
+    
+    setIsLoading(true);
+    
+    // Create a clean object with only the necessary fields
+    const cleanedItem = {
+      name: selectedItem.name,
+      quantity: selectedItem.quantity,
+      unit: selectedItem.unit,
+      price_per_unit: selectedItem.price_per_unit,
+      supplier_id: selectedItem.supplier_id,
+      // Explicitly include the status to ensure it gets updated
+      status: selectedItem.status
+    };
+    
+    // Log what status we're sending
+    console.log('Sending status update:', selectedItem.status);
+    
+    // Only include optional fields if they have values
+    if (selectedItem.manu_date) {
+      cleanedItem.manu_date = selectedItem.manu_date;
+    }
+    
+    if (selectedItem.exp_date) {
+      cleanedItem.exp_date = selectedItem.exp_date;
+    }
+    
+    if (selectedItem.purchase_date) {
+      cleanedItem.purchase_date = selectedItem.purchase_date;
+    }
+    
+    if (selectedItem.batch_no) {
+      cleanedItem.batch_no = selectedItem.batch_no;
+    }
+    
+    if (selectedItem.reorder_level !== undefined) {
+      cleanedItem.reorder_level = selectedItem.reorder_level;
+    }
+    
+    // Log data being sent
+    console.log('Sending update with data:', cleanedItem);
+    
+    // Make the API call with the cleaned data
+    await updateInventoryItem(selectedItem.inventory_id, cleanedItem);
+    
+    // Close modal first to avoid any state issues
+    setIsEditModalOpen(false);
+    
+    // Refresh the inventory list to get the updated item
+    await fetchInventoryItems();
+    
+    // Refresh stats
+    await fetchInventoryStats();
+    
+    notify('Item updated successfully', 'success');
+  } catch (error) {
+    console.error('Error updating item:', error);
+    notify(`Error updating item: ${error.message || 'Unknown error occurred'}`, 'error');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Handle delete item
   const handleDeleteItem = async (itemId) => {
@@ -436,6 +503,145 @@ function InventoryManagement() {
     return supplier ? supplier.name : 'Unknown';
   };
 
+  // Add supplier management state
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [supplierView, setSupplierView] = useState('list'); // 'list', 'add', 'edit'
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const [newSupplier, setNewSupplier] = useState({
+    name: '',
+    contact_number: '',
+    email: '',
+    address: '',
+    status: 'active' // Default to active
+  });
+
+  // Add a specific function for the supplier management modal to refresh suppliers
+  const refreshSuppliers = async () => {
+    try {
+      setIsLoading(true);
+      await fetchSuppliers();
+      notify('Supplier list refreshed', 'success');
+    } catch (error) {
+      console.error('Error refreshing suppliers:', error);
+      notify('Failed to refresh suppliers', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add this new function to handle opening the supplier modal with a fresh supplier list
+  const handleOpenSupplierModal = async () => {
+    setIsLoading(true);
+    setSupplierView('list');
+    setIsSupplierModalOpen(true);
+    
+    try {
+      await fetchSuppliers();
+    } catch (error) {
+      console.error('Error fetching suppliers for modal:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add these new functions for supplier management
+  const handleAddSupplier = async () => {
+    try {
+      // Validate form
+      if (!newSupplier.name || !newSupplier.contact_number) {
+        notify('Supplier name and contact number are required.', 'error');
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      // Create supplier using the API
+      const result = await createSupplier(newSupplier);
+      
+      // Refresh suppliers from server
+      await fetchSuppliers();
+      
+      // Reset form and go back to list view
+      setNewSupplier({
+        name: '',
+        contact_number: '',
+        email: '',
+        address: '',
+        status: 'active'
+      });
+      setSupplierView('list');
+      
+      notify('Supplier added successfully', 'success');
+    } catch (error) {
+      console.error('Error adding supplier:', error);
+      notify(`Error adding supplier: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditSupplier = async () => {
+    try {
+      // Validate form
+      if (!selectedSupplier.name || !selectedSupplier.contact_number) {
+        notify('Supplier name and contact number are required.', 'error');
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      // Update supplier using the API
+      await updateSupplier(selectedSupplier.supplier_id, selectedSupplier);
+      
+      // Refresh suppliers from server
+      await fetchSuppliers();
+      
+      setSupplierView('list');
+      
+      notify('Supplier updated successfully', 'success');
+    } catch (error) {
+      console.error('Error updating supplier:', error);
+      notify(`Error updating supplier: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteSupplier = async (supplierId) => {
+    // Check if supplier is used by any inventory items
+    const isUsed = inventoryItems.some(item => item.supplier_id === supplierId);
+    
+    if (isUsed) {
+      notify('Cannot delete supplier that is used by inventory items. Please reassign the items first.', 'warning');
+      return;
+    }
+    
+    if (!confirm('Are you sure you want to delete this supplier?')) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Delete supplier using the API
+      await deleteSupplier(supplierId);
+      
+      // Refresh suppliers from server
+      await fetchSuppliers();
+      
+      notify('Supplier deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      
+      // Special handling for backend constraint error
+      if (error.message.includes('inventory items')) {
+        notify('This supplier cannot be deleted because it has inventory items assigned to it.', 'error');
+      } else {
+        notify(`Error deleting supplier: ${error.message}`, 'error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="inventory-management-container">
       <Sidebar />
@@ -528,6 +734,14 @@ function InventoryManagement() {
               onClick={() => setIsAddModalOpen(true)}
             >
               <i className="fas fa-plus"></i> Add New Item
+            </button>
+
+            {/* Add button for managing suppliers */}
+            <button 
+              className="manage-suppliers-btn" 
+              onClick={handleOpenSupplierModal}
+            >
+              <i className="fas fa-users"></i> Manage Suppliers
             </button>
             
             <button className="reset-filters-btn" onClick={resetFilters}>
@@ -937,15 +1151,15 @@ function InventoryManagement() {
                   </div>
                   
                   <div className="form-group">
-                    <label>Status <span className="required">*</span></label>
-                    <select
-                      value={selectedItem.status}
+                    <label>Status</label>
+                    <select 
+                      value={selectedItem.status || 'available'}
                       onChange={(e) => setSelectedItem({...selectedItem, status: e.target.value})}
-                      required
+                      className="form-control"
                     >
                       <option value="available">Available</option>
-                      <option value="not_available">Not Available</option>
                       <option value="expired">Expired</option>
+                      <option value="used">Used</option>
                     </select>
                   </div>
                   
@@ -981,6 +1195,277 @@ function InventoryManagement() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Supplier Management Modal */}
+        {isSupplierModalOpen && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2>
+                  {supplierView === 'list' && 'Manage Suppliers'}
+                  {supplierView === 'add' && 'Add New Supplier'}
+                  {supplierView === 'edit' && 'Edit Supplier'}
+                </h2>
+                <button 
+                  className="close-modal-btn"
+                  onClick={() => setIsSupplierModalOpen(false)}
+                >
+                  &times;
+                </button>
+              </div>
+              
+              <div className="modal-body">
+                {supplierView === 'list' && (
+                  <>
+                    <div className="supplier-list-header">
+                      <div>
+                        <button 
+                          className="refresh-button"
+                          onClick={refreshSuppliers}
+                          disabled={isLoading}
+                        >
+                          <i className="fas fa-sync-alt"></i> Refresh
+                        </button>
+                      </div>
+                      <button 
+                        className="add-button"
+                        onClick={() => setSupplierView('add')}
+                      >
+                        <i className="fas fa-plus"></i> Add New Supplier
+                      </button>
+                    </div>
+                    
+                    {isLoading ? (
+                      <div className="loading-spinner-container">
+                        <div className="loading-spinner"></div>
+                        <p>Loading suppliers...</p>
+                      </div>
+                    ) : suppliers.length === 0 ? (
+                      <div className="no-suppliers-message">
+                        <p>No suppliers found. You can add a new supplier or check your connection to the server.</p>
+                        <button 
+                          className="retry-button"
+                          onClick={refreshSuppliers}
+                        >
+                          Retry Connection
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="supplier-table-container">
+                        <table className="supplier-table">
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              <th>Name</th>
+                              <th>Contact Number</th>
+                              <th>Email</th>
+                              <th>Address</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {suppliers.length > 0 ? (
+                              suppliers.map((supplier) => (
+                                <tr key={supplier.supplier_id}>
+                                  <td>{supplier.supplier_id}</td>
+                                  <td>{supplier.name}</td>
+                                  <td>{supplier.contact_number}</td>
+                                  <td>{supplier.email || "-"}</td>
+                                  <td>{supplier.address || "-"}</td>
+                                  <td>
+                                    <span className={`status-badge ${supplier.status === 'active' ? 'status-available' : 'status-not_available'}`}>
+                                      {supplier.status ? supplier.status.toUpperCase() : 'ACTIVE'}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <div className="supplier-actions">
+                                      <button 
+                                        className="edit-btn"
+                                        onClick={() => {
+                                          setSelectedSupplier(supplier);
+                                          setSupplierView('edit');
+                                        }}
+                                      >
+                                        <i className="fas fa-edit"></i> Edit
+                                      </button>
+                                      <button 
+                                        className="delete-btn"
+                                        onClick={() => handleDeleteSupplier(supplier.supplier_id)}
+                                      >
+                                        <i className="fas fa-trash-alt"></i> Delete
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan="6" className="no-items">
+                                  <div className="no-items-message">
+                                    No suppliers found.
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {supplierView === 'add' && (
+                  <div className="supplier-form">
+                    <div className="form-group">
+                      <label>Supplier Name <span className="required">*</span></label>
+                      <input 
+                        type="text" 
+                        value={newSupplier.name}
+                        onChange={(e) => setNewSupplier({...newSupplier, name: e.target.value})}
+                        placeholder="Enter supplier name"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Contact Number <span className="required">*</span></label>
+                      <input 
+                        type="text" 
+                        value={newSupplier.contact_number}
+                        onChange={(e) => setNewSupplier({...newSupplier, contact_number: e.target.value})}
+                        placeholder="Enter contact number"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Email</label>
+                      <input 
+                        type="email" 
+                        value={newSupplier.email}
+                        onChange={(e) => setNewSupplier({...newSupplier, email: e.target.value})}
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Status <span className="required">*</span></label>
+                      <select
+                        value={newSupplier.status}
+                        onChange={(e) => setNewSupplier({...newSupplier, status: e.target.value})}
+                        required
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                    
+                    <div className="form-group full-width">
+                      <label>Address</label>
+                      <textarea 
+                        value={newSupplier.address}
+                        onChange={(e) => setNewSupplier({...newSupplier, address: e.target.value})}
+                        placeholder="Enter complete address"
+                        rows="3"
+                      ></textarea>
+                    </div>
+                    
+                    <div className="form-actions">
+                      <button 
+                        className="cancel-btn"
+                        onClick={() => setSupplierView('list')}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="save-btn"
+                        onClick={handleAddSupplier}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? 'Adding...' : 'Add Supplier'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {supplierView === 'edit' && selectedSupplier && (
+                  <div className="supplier-form">
+                    <div className="form-group">
+                      <label>Supplier Name <span className="required">*</span></label>
+                      <input 
+                        type="text" 
+                        value={selectedSupplier.name}
+                        onChange={(e) => setSelectedSupplier({...selectedSupplier, name: e.target.value})}
+                        placeholder="Enter supplier name"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Contact Number <span className="required">*</span></label>
+                      <input 
+                        type="text" 
+                        value={selectedSupplier.contact_number}
+                        onChange={(e) => setSelectedSupplier({...selectedSupplier, contact_number: e.target.value})}
+                        placeholder="Enter contact number"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Email</label>
+                      <input 
+                        type="email" 
+                        value={selectedSupplier.email || ''}
+                        onChange={(e) => setSelectedSupplier({...selectedSupplier, email: e.target.value})}
+                        placeholder="Enter email address"
+                      />
+                    </div>
+                    
+                    <div className="form-group">
+                      <label>Status <span className="required">*</span></label>
+                      <select
+                        value={selectedSupplier.status || 'active'}
+                        onChange={(e) => setSelectedSupplier({...selectedSupplier, status: e.target.value})}
+                        required
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                    
+                    <div className="form-group full-width">
+                      <label>Address</label>
+                      <textarea 
+                        value={selectedSupplier.address || ''}
+                        onChange={(e) => setSelectedSupplier({...selectedSupplier, address: e.target.value})}
+                        placeholder="Enter complete address"
+                        rows="3"
+                      ></textarea>
+                    </div>
+                    
+                    <div className="form-actions">
+                      <button 
+                        className="cancel-btn"
+                        onClick={() => setSupplierView('list')}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        className="save-btn"
+                        onClick={handleEditSupplier}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

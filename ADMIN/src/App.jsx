@@ -5,6 +5,7 @@ import OrdersManagement from './pages/OrdersManagement';
 import ReservationManagement from './pages/ReservationManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import Login from './pages/Login';
+import StaffManagement from './pages/StaffManagement';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import "./App.css";
 
@@ -26,6 +27,7 @@ function App() {
           <Route path="/orders" element={<OrdersManagement />} />
           <Route path="/reservations" element={<ReservationManagement />} />
           <Route path="/inventory" element={<InventoryManagement />} />
+          <Route path="/staff" element={<StaffManagement />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

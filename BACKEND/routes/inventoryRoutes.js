@@ -1,31 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const inventoryController = require('../controllers/inventoryController');
-const adminAuthMiddleware = require('../middleware/adminAuthMiddleware');
+const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
-// Add route logging for debugging
-router.use((req, res, next) => {
-  console.log(`Inventory route accessed: ${req.method} ${req.url}`);
-  next();
-});
+// Public routes (if any)
 
-// Apply admin authentication middleware to all inventory routes
-router.use(adminAuthMiddleware.protectAdmin);
+// Protected routes - require authentication
+// Use middleware to protect routes if needed
+// router.use(verifyToken);
 
-// Inventory statistics
+// Get all inventory items with optional filters
+router.get('/', inventoryController.getAllInventoryItems);
+
+// Get inventory statistics
 router.get('/stats', inventoryController.getInventoryStats);
 
-// Categories endpoint
+// Get inventory categories
 router.get('/categories', inventoryController.getInventoryCategories);
 
-// CRUD operations on inventory items
-router.get('/', inventoryController.getAllInventoryItems);
+// Get inventory item by ID
 router.get('/:id', inventoryController.getInventoryItemById);
-router.post('/', inventoryController.createInventoryItem);
-router.put('/:id', inventoryController.updateInventoryItem);
-router.delete('/:id', inventoryController.deleteInventoryItem);
 
-// Special route for quick quantity updates
+// Create new inventory item
+router.post('/', inventoryController.createInventoryItem);
+
+// Update inventory item
+router.put('/:id', inventoryController.updateInventoryItem);
+
+// Update only the quantity of an inventory item (partial update)
 router.patch('/:id/quantity', inventoryController.updateInventoryQuantity);
+
+// Delete inventory item
+router.delete('/:id', inventoryController.deleteInventoryItem);
 
 module.exports = router;

@@ -243,6 +243,8 @@ exports.updateInventoryItem = (req, res) => {
       supplier_id 
     } = req.body;
     
+    console.log('Update inventory request:', { itemId, body: req.body });
+    
     // First check if item exists
     db.query('SELECT * FROM inventory WHERE inventory_id = ?', [itemId], (err, results) => {
       if (err) {
@@ -300,6 +302,8 @@ exports.updateInventoryItem = (req, res) => {
           return res.status(400).json({ message: 'No fields to update provided' });
         }
         
+        console.log('Updating inventory with data:', updateData);
+        
         // Update item in database
         db.query('UPDATE inventory SET ? WHERE inventory_id = ?', [updateData, itemId], (err, result) => {
           if (err) {
@@ -329,6 +333,13 @@ exports.updateInventoryItem = (req, res) => {
               });
             }
             
+            if (item.length === 0) {
+              return res.json({
+                message: 'Inventory item updated successfully, but could not retrieve the updated item',
+                inventory_id: itemId
+              });
+            }
+            
             res.json(item[0]);
           });
         });
@@ -347,6 +358,8 @@ exports.updateInventoryQuantity = (req, res) => {
   try {
     const itemId = req.params.id;
     const { quantity } = req.body;
+    
+    console.log('Update quantity request:', { itemId, quantity });
     
     if (quantity === undefined) {
       return res.status(400).json({ message: 'Quantity is required' });
@@ -393,6 +406,14 @@ exports.updateInventoryQuantity = (req, res) => {
             console.error('Error fetching updated item:', err);
             return res.json({
               message: 'Inventory quantity updated successfully',
+              inventory_id: itemId,
+              quantity
+            });
+          }
+          
+          if (item.length === 0) {
+            return res.json({
+              message: 'Inventory quantity updated successfully, but could not retrieve the updated item',
               inventory_id: itemId,
               quantity
             });
@@ -504,4 +525,24 @@ exports.getInventoryCategories = (req, res) => {
     console.error('Server error in getInventoryCategories:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
+};
+
+// Add a debugging endpoint to check item status
+exports.getItemStatus = (req, res) => {
+  const itemId = req.params.id;
+  
+  db.query('SELECT status FROM inventory WHERE inventory_id = ?', [itemId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Error checking status', error: err.message });
+    }
+    
+    if (results.length === 0) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    
+    res.json({ 
+      status: results[0].status,
+      valid_status_values: ['available', 'expired', 'used']
+    });
+  });
 };

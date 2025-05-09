@@ -411,6 +411,28 @@
   background-color: #f56565;
 }
 
+/* Status Badge Styles */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.status-available,
+.status-badge[class*="active"] {
+  background-color: #c6f6d5;
+  color: #22543d;
+}
+
+.status-badge.status-not_available,
+.status-badge[class*="inactive"] {
+  background-color: #fed7d7;
+  color: #822727;
+}
+
 /* Date fields styling */
 .date-field {
   font-size: 0.9rem;
@@ -597,7 +619,7 @@
   border-radius: 12px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   width: 90%;
-  max-width: 600px;
+  max-width: 900px; /* Increased from default (likely 600px) */
   max-height: 90vh;
   overflow-y: auto;
   padding: 0;
@@ -613,13 +635,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  padding: 1.8rem 2.5rem; /* Larger padding */
   border-bottom: 1px solid #e2e8f0;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.8rem; /* Larger font size */
   color: #2d3748;
   font-weight: 700;
 }
@@ -639,7 +661,32 @@
 }
 
 .modal-body {
-  padding: 2rem;
+  padding: 2.5rem; /* Larger padding */
+}
+
+/* Increase size of supplier management modal */
+.modal-overlay .modal-content {
+  max-width: 1200px; /* Increased from default to make it much wider */
+  width: 90%;
+  max-height: 85vh; /* Increased height to take up more vertical space */
+}
+
+/* Make the supplier table container taller */
+.supplier-table-container {
+  max-height: 60vh; /* Allow more vertical space for the table */
+  overflow-y: auto;
+}
+
+/* Adjust the modal body padding for more content space */
+.modal-body {
+  padding: 2rem 2.5rem;
+}
+
+/* Make the form elements more spaced out */
+.supplier-form {
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1rem;
 }
 
 /* Improved Form styles */
@@ -817,4 +864,214 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Supplier Management Button */
+.manage-suppliers-btn {
+  background-color: #4299e1;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.manage-suppliers-btn:hover {
+  background-color: #3182ce;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.manage-suppliers-btn:active {
+  transform: translateY(0);
+}
+
+/* Supplier List Styling */
+.supplier-list-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.supplier-table-container {
+  overflow-x: auto;
+  background-color: white;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.supplier-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.supplier-table th {
+  background-color: #f8fafc;
+  padding: 1.25rem 1rem; /* Increased padding for more spaciousness */
+  font-weight: 600;
+  color: #4a5568;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.supplier-table td {
+  padding: 1.25rem 1rem; /* Increased padding for more spaciousness */
+  border-bottom: 1px solid #edf2f7;
+  vertical-align: middle;
+  color: #2d3748;
+}
+
+.supplier-table tbody tr {
+  transition: all 0.2s;
+}
+
+.supplier-table tbody tr:hover {
+  background-color: #f7fafc;
+}
+
+.supplier-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.supplier-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Supplier Form */
+.supplier-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem; /* Increased gap between form elements */
+  padding: 1rem;
+}
+
+.supplier-form .form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.supplier-form .form-group {
+  margin-bottom: 1.5rem; /* Added margin to create more vertical space */
+}
+
+.add-button {
+  background-color: #48bb78;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.add-button:hover {
+  background-color: #38a169;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Add styles for the no suppliers message */
+.no-suppliers-message {
+  text-align: center;
+  padding: 3rem 2rem;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.no-suppliers-message p {
+  color: #718096;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.retry-button {
+  background-color: #4299e1;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  font-size: 0.95rem;
+  margin: 0 auto;
+  display: block;
+}
+
+.retry-button:hover {
+  background-color: #3182ce;
+  transform: translateY(-2px);
+}
+
+/* Add styles for the supplier list header and refresh button */
+.supplier-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.refresh-button {
+  background-color: #6366f1;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.refresh-button:hover {
+  background-color: #4f46e5;
+  transform: translateY(-2px);
+}
+
+.refresh-button:disabled {
+  background-color: #a5b4fc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Loading spinner container for suppliers */
+.loading-spinner-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

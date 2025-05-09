@@ -57,7 +57,7 @@ exports.getSupplierById = (req, res) => {
  */
 exports.createSupplier = (req, res) => {
   try {
-    const { name, contact_number, email, address } = req.body;
+    const { name, contact_number, email, address, status } = req.body;
     
     // Validate required fields
     if (!name) {
@@ -71,6 +71,7 @@ exports.createSupplier = (req, res) => {
     if (contact_number) newSupplier.contact_number = contact_number;
     if (email) newSupplier.email = email;
     if (address) newSupplier.address = address;
+    if (status) newSupplier.status = status;
     
     // Insert into database
     db.query('INSERT INTO suppliers SET ?', newSupplier, (err, result) => {
@@ -101,7 +102,7 @@ exports.createSupplier = (req, res) => {
 exports.updateSupplier = (req, res) => {
   try {
     const supplierId = req.params.id;
-    const { name, contact_number, email, address } = req.body;
+    const { name, contact_number, email, address, status } = req.body;
     
     // Build update object with only provided fields
     const updateData = {};
@@ -109,6 +110,7 @@ exports.updateSupplier = (req, res) => {
     if (contact_number !== undefined) updateData.contact_number = contact_number;
     if (email !== undefined) updateData.email = email;
     if (address !== undefined) updateData.address = address;
+    if (status !== undefined) updateData.status = status;
     
     // Check if any data to update
     if (Object.keys(updateData).length === 0) {

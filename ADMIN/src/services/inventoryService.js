@@ -1,12 +1,20 @@
 import { API_URL } from '../config/constants';
 import { 
   mockInventoryItems, 
-  mockInventoryCategories, 
-  mockSuppliers,
+  mockInventoryCategories,
   generateMockInventoryStats,
   serverStatus,
   checkServerAvailability
 } from '../utils/mockData';
+
+// Create a local mock suppliers array to use when server is unavailable (sorted by ID)
+const fallbackSuppliers = [
+  { supplier_id: 1, name: "Quality Foods Ltd", contact_number: "0112345678", email: "info@qualityfoods.com", address: "123 Main St, Colombo", status: "active" },
+  { supplier_id: 2, name: "Fresh Farms Inc", contact_number: "0775566778", email: "orders@freshfarms.lk", address: "45 Farm Road, Kandy", status: "active" },
+  { supplier_id: 3, name: "Green Harvest Ltd", contact_number: "0114567890", email: "sales@greenharvest.com", address: "78 Garden Ave, Galle", status: "active" },
+  { supplier_id: 4, name: "Mediterranean Imports", contact_number: "0776655443", email: "imports@mediterranean.lk", address: "90 Import Drive, Colombo", status: "active" },
+  { supplier_id: 5, name: "Bakers Supply Co", contact_number: "0112223344", email: "supply@bakerssupply.com", address: "12 Baker Street, Negombo", status: "inactive" }
+].sort((a, b) => a.supplier_id - b.supplier_id);
 
 // Get all inventory items with optional filters
 export const getAllInventoryItems = async (filters = {}) => {
@@ -50,9 +58,9 @@ export const getAllInventoryItems = async (filters = {}) => {
         });
       }
       
-      // Combine with supplier info
+      // Combine with fallback supplier info instead of mockSuppliers
       filteredItems = filteredItems.map(item => {
-        const supplier = mockSuppliers.find(s => s.supplier_id === item.supplier_id);
+        const supplier = fallbackSuppliers.find(s => s.supplier_id === item.supplier_id);
         return {
           ...item,
           supplier_name: supplier ? supplier.name : 'Unknown'
@@ -231,7 +239,7 @@ export const createInventoryItem = async (itemData) => {
       mockInventoryItems.push(newItem);
       
       // Add supplier info
-      const supplier = mockSuppliers.find(s => s.supplier_id === newItem.supplier_id);
+      const supplier = fallbackSuppliers.find(s => s.supplier_id === newItem.supplier_id);
       
       return {
         ...newItem,
@@ -270,13 +278,12 @@ export const createInventoryItem = async (itemData) => {
   }
 };
 
-// Update an inventory item
+// Update an inventory item - using only valid status values from the database schema
 export const updateInventoryItem = async (itemId, itemData) => {
   try {
     // Check server availability first
     const isServerAvailable = await checkServerAvailability();
     
-    // If server is down, simulate updating an item with mock data
     if (!isServerAvailable) {
       console.log('Simulating update inventory item (server unavailable)');
       
@@ -302,20 +309,119 @@ export const updateInventoryItem = async (itemId, itemData) => {
     }
     
     // Server is available, make the real request
+    console.log('Updating inventory item ID:', itemId, 'with data:', itemData);
+    
+    // Create the data object for the update
+    const updateData = {
+      name: itemData.name || "",
+      unit: itemData.unit || ""
+    };
+    
+    // Add numeric fields
+    if (itemData.quantity !== undefined) {
+      updateData.quantity = Number(itemData.quantity);
+    }
+    
+    if (itemData.price_per_unit !== undefined) {
+      updateData.price_per_unit = Number(itemData.price_per_unit);
+    }
+    
+    if (itemData.supplier_id) {
+      updateData.supplier_id = Number(itemData.supplier_id);
+    }
+    
+    // Handle date fields
+    if (itemData.exp_date) {
+      try {
+        const date = new Date(itemData.exp_date);
+        updateData.exp_date = date.toISOString().split('T')[0];
+      } catch (e) {
+        console.warn('Invalid exp_date format, skipping field');
+      }
+    }
+    
+    if (itemData.manu_date) {
+      try {
+        const date = new Date(itemData.manu_date);
+        updateData.manu_date = date.toISOString().split('T')[0];
+      } catch (e) {
+        console.warn('Invalid manu_date format, skipping field');
+      }
+    }
+    
+    if (itemData.purchase_date) {
+      try {
+        const date = new Date(itemData.purchase_date);
+        updateData.purchase_date = date.toISOString().split('T')[0];
+      } catch (e) {
+        console.warn('Invalid purchase_date format, skipping field');
+      }
+    }
+    
+    // Add batch_no if provided
+    if (itemData.batch_no) {
+      updateData.batch_no = String(itemData.batch_no);
+    }
+    
+    // Map frontend status values to valid database ENUM values
+    // The database ENUM only allows: 'available', 'expired', 'used'
+    if (itemData.status) {
+      console.log('Original status from frontend:', itemData.status);
+      
+      switch(itemData.status) {
+        case 'available':
+          updateData.status = 'available';
+          break;
+        case 'not_available':
+        case 'unavailable':
+          updateData.status = 'used'; // Map unavailable to used
+          break;
+        case 'expired':
+          updateData.status = 'expired';
+          break;
+        case 'used':
+          updateData.status = 'used'; // Explicitly handle 'used' status
+          break;
+        default:
+          // Don't include invalid status values
+          console.warn(`Status value '${itemData.status}' is not valid, using default`);
+          break;
+      }
+      
+      console.log('Mapped status for database:', updateData.status);
+    }
+    
+    console.log('Sending update with valid data:', updateData);
+    
     const token = localStorage.getItem('adminToken');
     
+    // Send the update with correct status values
     const response = await fetch(`${API_URL}/api/inventory/${itemId}`, {
       method: 'PUT',
       headers: {
         'Authorization': token ? `Bearer ${token}` : '',
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(itemData)
+      body: JSON.stringify(updateData)
     });
     
+    // Log response details
+    console.log('Response status:', response.status);
+    
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update inventory item');
+      // Handle error response
+      const errorText = await response.text();
+      console.error('Error response text:', errorText);
+      throw new Error('Error updating inventory item');
+    }
+    
+    // If the update was successful, log the response
+    if (response.ok) {
+      const responseData = await response.json();
+      console.log('Update response:', responseData);
+      return responseData;
+    } else {
+      // ...existing error handling...
     }
     
     return await response.json();
@@ -413,15 +519,18 @@ export const getInventoryCategories = async () => {
   }
 };
 
-// Get all suppliers
+// Get all suppliers - updated to improve error handling and server availability check
 export const getSuppliers = async () => {
   try {
-    const isServerAvailable = await checkServerAvailability();
+    // Force check server availability
+    const isServerAvailable = await checkServerAvailability(true);
     
     if (!isServerAvailable) {
-      return mockSuppliers;
+      console.log('Using fallback suppliers data (server unavailable)');
+      return fallbackSuppliers; // Already sorted by ID
     }
     
+    console.log('Fetching suppliers from database...');
     const token = localStorage.getItem('adminToken');
     
     const response = await fetch(`${API_URL}/api/suppliers`, {
@@ -433,15 +542,175 @@ export const getSuppliers = async () => {
     });
     
     if (!response.ok) {
-      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Server error response:', errorData);
+      throw new Error(errorData.message || `Server returned ${response.status}: ${response.statusText}`);
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log('Successfully fetched suppliers:', data);
+    
+    // Sort suppliers by ID before returning
+    return data.sort((a, b) => a.supplier_id - b.supplier_id);
   } catch (error) {
     console.error('Get suppliers service error:', error);
     serverStatus.isAvailable = false;
     serverStatus.lastChecked = Date.now();
-    return mockSuppliers;
+    
+    // Return fallback suppliers instead of empty array
+    return fallbackSuppliers; // Already sorted by ID
+  }
+};
+
+// Create a new supplier - updated to use fallback implementation when server is unavailable
+export const createSupplier = async (supplierData) => {
+  try {
+    const isServerAvailable = await checkServerAvailability();
+    
+    if (!isServerAvailable) {
+      console.log('Simulating create supplier (server unavailable)');
+      
+      // Create a new supplier with mock implementation
+      const newId = Math.max(...fallbackSuppliers.map(s => s.supplier_id)) + 1;
+      const newSupplier = {
+        ...supplierData,
+        supplier_id: newId
+      };
+      
+      // Add to fallback suppliers list
+      fallbackSuppliers.push(newSupplier);
+      
+      return newSupplier;
+    }
+    
+    const token = localStorage.getItem('adminToken');
+    
+    const response = await fetch(`${API_URL}/api/suppliers`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(supplierData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create supplier');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Create supplier service error:', error);
+    
+    if (error.message.includes('Failed to fetch')) {
+      serverStatus.isAvailable = false;
+      serverStatus.lastChecked = Date.now();
+    }
+    
+    throw error;
+  }
+};
+
+// Update a supplier - updated to use fallback implementation when server is unavailable
+export const updateSupplier = async (supplierId, supplierData) => {
+  try {
+    const isServerAvailable = await checkServerAvailability();
+    
+    if (!isServerAvailable) {
+      console.log('Simulating update supplier (server unavailable)');
+      
+      const index = fallbackSuppliers.findIndex(s => s.supplier_id === parseInt(supplierId));
+      if (index === -1) throw new Error('Supplier not found');
+      
+      // Update the supplier in fallback list
+      fallbackSuppliers[index] = {
+        ...fallbackSuppliers[index],
+        ...supplierData,
+        supplier_id: parseInt(supplierId)
+      };
+      
+      return fallbackSuppliers[index];
+    }
+    
+    const token = localStorage.getItem('adminToken');
+    
+    const response = await fetch(`${API_URL}/api/suppliers/${supplierId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(supplierData)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update supplier');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Update supplier service error:', error);
+    
+    if (error.message.includes('Failed to fetch')) {
+      serverStatus.isAvailable = false;
+      serverStatus.lastChecked = Date.now();
+    }
+    
+    throw error;
+  }
+};
+
+// Delete a supplier - updated to use fallback implementation when server is unavailable
+export const deleteSupplier = async (supplierId) => {
+  try {
+    const isServerAvailable = await checkServerAvailability();
+    
+    if (!isServerAvailable) {
+      console.log('Simulating delete supplier (server unavailable)');
+      
+      // Check if any mock inventory items use this supplier
+      const isUsed = mockInventoryItems.some(item => item.supplier_id === parseInt(supplierId));
+      
+      if (isUsed) {
+        throw new Error('Cannot delete supplier with inventory items. Reassign or delete the items first.');
+      }
+      
+      const index = fallbackSuppliers.findIndex(s => s.supplier_id === parseInt(supplierId));
+      if (index === -1) throw new Error('Supplier not found');
+      
+      // Remove the supplier from fallback list
+      fallbackSuppliers.splice(index, 1);
+      
+      return { message: 'Supplier deleted successfully' };
+    }
+    
+    const token = localStorage.getItem('adminToken');
+    
+    const response = await fetch(`${API_URL}/api/suppliers/${supplierId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete supplier');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Delete supplier service error:', error);
+    
+    if (error.message.includes('Failed to fetch')) {
+      serverStatus.isAvailable = false;
+      serverStatus.lastChecked = Date.now();
+    }
+    
+    throw error;
   }
 };
 
@@ -463,8 +732,8 @@ export const updateInventoryQuantity = async (itemId, newQuantity) => {
         status: newQuantity === 0 ? 'not_available' : mockInventoryItems[index].status
       };
       
-      // Add supplier info for consistency
-      const supplier = mockSuppliers.find(s => s.supplier_id === mockInventoryItems[index].supplier_id);
+      // Add supplier info for consistency - use fallbackSuppliers instead of mockSuppliers
+      const supplier = fallbackSuppliers.find(s => s.supplier_id === mockInventoryItems[index].supplier_id);
       
       return {
         ...mockInventoryItems[index],

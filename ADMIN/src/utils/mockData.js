@@ -9,40 +9,45 @@ export const serverStatus = {
   checkInProgress: false
 };
 
-// Check if server is available
-export const checkServerAvailability = async () => {
-  if (serverStatus.checkInProgress) return serverStatus.isAvailable;
-  
+// Update the server availability check to use a valid endpoint
+export const checkServerAvailability = async (forceCheck = false) => {
   const now = Date.now();
-  // Only check if enough time has passed since last check
-  if (now - serverStatus.lastChecked < serverStatus.checkInterval) {
+  
+  // If we checked recently and not forcing a check, return cached status
+  if (!forceCheck && serverStatus.lastChecked && (now - serverStatus.lastChecked) < 60000) {
     return serverStatus.isAvailable;
   }
   
-  serverStatus.checkInProgress = true;
-  
   try {
-    // Attempt to connect to server with a timeout
+    console.log('Checking server availability...');
+    // Use the suppliers endpoint instead of status since it's implemented
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
-    const response = await fetch(`${API_URL}/api/health`, {
+    // Add token for authentication if needed
+    const token = localStorage.getItem('adminToken');
+    
+    const response = await fetch(`${API_URL}/api/suppliers`, {
       method: 'GET',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json'
+      },
       signal: controller.signal
     });
     
     clearTimeout(timeoutId);
     
     serverStatus.isAvailable = response.ok;
-    serverStatus.lastChecked = Date.now();
+    serverStatus.lastChecked = now;
+    
+    console.log(`Server is ${serverStatus.isAvailable ? 'available' : 'unavailable'}`);
     return serverStatus.isAvailable;
   } catch (error) {
-    console.log('Server availability check failed:', error.message);
+    console.error('Server availability check failed:', error);
     serverStatus.isAvailable = false;
-    serverStatus.lastChecked = Date.now();
+    serverStatus.lastChecked = now;
     return false;
-  } finally {
-    serverStatus.checkInProgress = false;
   }
 };
 
@@ -326,16 +331,6 @@ export const mockInventoryCategories = [
   { id: 7, name: "Baking" },
   { id: 8, name: "Oils" },
   { id: 9, name: "Beverages" }
-];
-
-export const mockSuppliers = [
-  { supplier_id: 1, name: "Quality Foods Ltd", contact_number: "0112345678", email: "info@qualityfoods.com", address: "123 Main St, Colombo" },
-  { supplier_id: 2, name: "Fresh Farms Inc", contact_number: "0775566778", email: "orders@freshfarms.lk", address: "45 Farm Road, Kandy" },
-  { supplier_id: 3, name: "Green Harvest Ltd", contact_number: "0114567890", email: "sales@greenharvest.com", address: "78 Garden Ave, Galle" },
-  { supplier_id: 4, name: "Mediterranean Imports", contact_number: "0776655443", email: "imports@mediterranean.lk", address: "90 Import Drive, Colombo" },
-  { supplier_id: 5, name: "Bakers Supply Co", contact_number: "0112223344", email: "supply@bakerssupply.com", address: "12 Baker Street, Negombo" },
-  { supplier_id: 6, name: "Dairy Delights", contact_number: "0778889900", email: "orders@dairydelights.lk", address: "34 Dairy Road, Jaffna" },
-  { supplier_id: 7, name: "Spice Traders", contact_number: "0114443322", email: "sales@spicetraders.com", address: "56 Spice Lane, Matara" }
 ];
 
 export const generateMockInventoryStats = () => {
