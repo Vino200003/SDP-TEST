@@ -3,8 +3,8 @@ import { API_URL } from '../config/constants';
 
 // Server status properties
 export const serverStatus = {
-  isAvailable: true,  // Set to true to prevent server down notifications
-  lastChecked: 0,
+  isAvailable: false,
+  lastChecked: null,
   checkInterval: 30000, // 30 seconds between retry checks
   checkInProgress: false
 };
@@ -339,15 +339,22 @@ export const mockSuppliers = [
 ];
 
 export const generateMockInventoryStats = () => {
-  const totalItems = mockInventoryItems.length;
-  const availableItems = mockInventoryItems.filter(item => item.status === 'available').length;
-  const notAvailableItems = mockInventoryItems.filter(item => item.status === 'not_available').length;
-  const expiredItems = mockInventoryItems.filter(item => item.status === 'expired').length;
+  // Calculate stats from mockInventoryItems
+  const total_items = mockInventoryItems.length;
+  const available = mockInventoryItems.filter(item => item.status === 'available').length;
+  const not_available = mockInventoryItems.filter(item => item.status === 'not_available').length;
+  
+  // Calculate expired items by checking exp_date
+  const today = new Date();
+  const expired = mockInventoryItems.filter(item => {
+    if (!item.exp_date) return false;
+    return new Date(item.exp_date) < today;
+  }).length;
   
   return {
-    total_items: totalItems,
-    available: availableItems,
-    not_available: notAvailableItems,
-    expired: expiredItems
+    total_items,
+    available,
+    not_available,
+    expired
   };
 };

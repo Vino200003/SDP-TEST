@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config/constants';
 import '../styles/Login.css';
 import logo from '../assets/logo.png';
 
 function Login({ onLogin }) {
   const [credentials, setCredentials] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -27,18 +28,32 @@ function Login({ onLogin }) {
     
     try {
       // Simple validation
-      if (!credentials.username || !credentials.password) {
-        throw new Error('Username and password are required');
+      if (!credentials.email || !credentials.password) {
+        throw new Error('Email and password are required');
       }
       
-      // For development/testing: accept any credentials
-      // Store token in multiple formats to ensure compatibility with our token helper
-      localStorage.setItem('auth_token', 'mock_token_value');
-      localStorage.setItem('adminToken', 'mock_token_value'); // Add this format as well
-      localStorage.setItem('admin_user', JSON.stringify({
-        name: credentials.username,
-        role: 'admin'
-      }));
+      // Make actual API call to backend for authentication
+      const response = await fetch(`${API_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: credentials.email,
+          password: credentials.password
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed. Please check your credentials.');
+      }
+      
+      // Store token and admin data in localStorage
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('admin_user', JSON.stringify(data.admin));
       
       // Call the onLogin callback to update auth state
       if (onLogin) onLogin();
@@ -46,6 +61,7 @@ function Login({ onLogin }) {
       // Navigate to dashboard
       navigate('/dashboard');
     } catch (error) {
+      console.error('Login error:', error);
       setError(error.message || 'Login failed. Please try again.');
     } finally {
       setIsLoading(false);
@@ -64,12 +80,12 @@ function Login({ onLogin }) {
         
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="email">Email</label>
             <input
-              type="text"
-              id="username"
-              name="username"
-              value={credentials.username}
+              type="email"
+              id="email"
+              name="email"
+              value={credentials.email}
               onChange={handleChange}
               required
             />
@@ -96,9 +112,13 @@ function Login({ onLogin }) {
           </button>
         </form>
         
-        {/* Development helper */}
+        {/* Admin credentials helper */}
         <div className="login-footer">
-          <p>For testing, enter any username and password</p>
+          <p className="default-credentials">
+            Default Admin: admin@restaurant.com / admin123
+            <br />
+            Special Admin: jenivimaha@gmail.com / admin1234
+          </p>
         </div>
       </div>
     </div>

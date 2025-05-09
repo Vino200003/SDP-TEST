@@ -1,4 +1,4 @@
-import { createContext, useState, useContext } from 'react';
+import { createContext, useState, useContext, useEffect } from 'react';
 import { API_URL } from '../config/constants';
 
 // Create the Auth Context
@@ -7,34 +7,78 @@ const AuthContext = createContext(null);
 // AuthProvider component that wraps your app and makes auth object available to any child component that calls useAuth().
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState(localStorage.getItem('auth_token') || null);
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('auth_token'));
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check for existing auth on mount
+  useEffect(() => {
+    const loadStoredAuth = async () => {
+      const storedToken = localStorage.getItem('auth_token');
+      const storedUser = localStorage.getItem('admin_user');
+      
+      if (storedToken && storedUser) {
+        try {
+          // Verify token is still valid with the backend
+          const isValid = await validateToken(storedToken);
+          
+          if (isValid) {
+            setToken(storedToken);
+            setUser(JSON.parse(storedUser));
+            setIsAuthenticated(true);
+          } else {
+            // Token is invalid, clear storage
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('admin_user');
+          }
+        } catch (error) {
+          console.error('Error validating stored token:', error);
+        }
+      }
+      
+      setIsLoading(false);
+    };
+    
+    loadStoredAuth();
+  }, []);
 
   // Method to login with admin credentials
   const login = async (credentials) => {
     try {
-      // For now, let's just mock successful authentication
-      // This will be replaced with actual API call later
-      console.log('Login attempt with:', credentials);
+      setIsLoading(true);
       
-      // Mock successful login
-      const mockUser = {
-        id: 1,
-        email: credentials.username,
-        name: 'Admin User'
-      };
+      // Make actual API call to backend for authentication
+      const response = await fetch(`${API_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
       
-      const mockToken = 'mock-jwt-token';
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Authentication failed');
+      }
       
       // Set auth state
-      setUser(mockUser);
-      setToken(mockToken);
+      setUser(data.admin);
+      setToken(data.token);
       setIsAuthenticated(true);
       
-      return { success: true, user: mockUser };
+      // Store in localStorage
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('adminToken', data.token);
+      localStorage.setItem('admin_user', JSON.stringify(data.admin));
+      
+      return { success: true, user: data.admin };
     } catch (error) {
       console.error('Login error:', error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -45,8 +89,28 @@ export function AuthProvider({ children }) {
     setToken(null);
     setIsAuthenticated(false);
     
-    // Add console log for debugging
+    // Clear localStorage
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('admin_user');
+    
     console.log('User logged out successfully');
+  };
+  
+  // Validate token with backend
+  const validateToken = async (tokenToValidate) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/profile`, {
+        headers: {
+          'Authorization': `Bearer ${tokenToValidate}`,
+        },
+      });
+      
+      return response.ok;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return false;
+    }
   };
   
   // Get auth token method
@@ -57,9 +121,11 @@ export function AuthProvider({ children }) {
     user,
     token,
     isAuthenticated,
+    isLoading,
     login,
     logout,
-    getToken
+    getToken,
+    validateToken
   };
 
   // Pass the value to provider and return
