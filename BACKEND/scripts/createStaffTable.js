@@ -35,6 +35,7 @@ db.connect(async (err) => {
           staff_id INT AUTO_INCREMENT PRIMARY KEY,
           first_name VARCHAR(255) NOT NULL,
           last_name VARCHAR(255) NOT NULL,
+          nic VARCHAR(20) NOT NULL UNIQUE,
           email VARCHAR(255) UNIQUE NOT NULL,
           password VARCHAR(255) NOT NULL,
           phone_number VARCHAR(15),
@@ -67,6 +68,7 @@ db.connect(async (err) => {
       {
         first_name: 'John',
         last_name: 'Doe',
+        nic: '123456789V',
         email: 'john.doe@restaurant.com',
         phone_number: '1234567890',
         role: 'waiter',
@@ -75,6 +77,7 @@ db.connect(async (err) => {
       {
         first_name: 'Jane',
         last_name: 'Smith',
+        nic: '987654321V',
         email: 'jane.smith@restaurant.com',
         phone_number: '2345678901',
         role: 'chef',
@@ -83,6 +86,7 @@ db.connect(async (err) => {
       {
         first_name: 'David',
         last_name: 'Johnson',
+        nic: '567891234V',
         email: 'david.johnson@restaurant.com',
         phone_number: '3456789012',
         role: 'delivery',

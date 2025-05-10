@@ -46,6 +46,7 @@ function StaffManagement() {
   const [staffForm, setStaffForm] = useState({
     first_name: '',
     last_name: '',
+    nic: '',
     email: '',
     password: '',
     confirmPassword: '', // Add confirm password field
@@ -123,6 +124,7 @@ function StaffManagement() {
           return (
             member.first_name.toLowerCase().includes(search) ||
             member.last_name.toLowerCase().includes(search) ||
+            member.nic.toLowerCase().includes(search) ||
             member.email.toLowerCase().includes(search) ||
             (member.phone_number && member.phone_number.toLowerCase().includes(search))
           );
@@ -132,6 +134,8 @@ function StaffManagement() {
             member.last_name.toLowerCase().includes(search) ||
             `${member.first_name.toLowerCase()} ${member.last_name.toLowerCase()}`.includes(search)
           );
+        } else if (searchCategory === 'nic') {
+          return member.nic.toLowerCase().includes(search);
         } else if (searchCategory === 'email') {
           return member.email.toLowerCase().includes(search);
         } else if (searchCategory === 'phone') {
@@ -165,6 +169,13 @@ function StaffManagement() {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(staffForm.email)) {
         alert('Please enter a valid email address');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Validate NIC format (simple validation)
+      if (!staffForm.nic || staffForm.nic.length < 5) {
+        alert('Please enter a valid NIC number');
         setIsLoading(false);
         return;
       }
@@ -318,6 +329,7 @@ function StaffManagement() {
     setStaffForm({
       first_name: '',
       last_name: '',
+      nic: '',
       email: '',
       password: '',
       confirmPassword: '', // Reset confirm password too
@@ -391,6 +403,7 @@ function StaffManagement() {
                 >
                   <option value="all">All Fields</option>
                   <option value="name">Name</option>
+                  <option value="nic">NIC</option>
                   <option value="email">Email</option>
                   <option value="phone">Phone</option>
                 </select>
@@ -452,6 +465,7 @@ function StaffManagement() {
                 <tr>
                   <th>ID</th>
                   <th>Name</th>
+                  <th>NIC</th>
                   <th>Email</th>
                   <th>Phone</th>
                   <th>Role</th>
@@ -466,6 +480,7 @@ function StaffManagement() {
                     <tr key={member.staff_id}>
                       <td>{member.staff_id}</td>
                       <td>{`${member.first_name} ${member.last_name}`}</td>
+                      <td>{member.nic}</td>
                       <td>{member.email}</td>
                       <td>{member.phone_number || 'N/A'}</td>
                       <td>
@@ -499,7 +514,7 @@ function StaffManagement() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="8" className="no-staff">
+                    <td colSpan="9" className="no-staff">
                       No staff members match your search or filter criteria.
                     </td>
                   </tr>
@@ -546,6 +561,19 @@ function StaffManagement() {
                       required
                     />
                   </div>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="nic">NIC Number</label>
+                  <input
+                    type="text"
+                    id="nic"
+                    name="nic"
+                    value={staffForm.nic}
+                    onChange={handleFormChange}
+                    required
+                    placeholder="Enter National ID Number"
+                  />
                 </div>
                 
                 <div className="form-group">
@@ -697,6 +725,19 @@ function StaffManagement() {
                       required
                     />
                   </div>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="edit_nic">NIC Number</label>
+                  <input
+                    type="text"
+                    id="edit_nic"
+                    name="nic"
+                    value={staffForm.nic}
+                    onChange={handleFormChange}
+                    required
+                    placeholder="Enter National ID Number"
+                  />
                 </div>
                 
                 <div className="form-group">

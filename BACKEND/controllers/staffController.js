@@ -7,7 +7,7 @@ const db = require('../config/db');
 exports.getAllStaff = (req, res) => {
   try {
     const query = `
-      SELECT staff_id, first_name, last_name, email, phone_number, role, active, created_at, updated_at 
+      SELECT staff_id, first_name, last_name, nic, email, phone_number, role, active, created_at, updated_at 
       FROM staff 
       ORDER BY staff_id ASC
     `;
@@ -37,7 +37,7 @@ exports.getStaffById = (req, res) => {
     const staffId = req.params.id;
     
     const query = `
-      SELECT staff_id, first_name, last_name, email, phone_number, role, active, created_at, updated_at 
+      SELECT staff_id, first_name, last_name, nic, email, phone_number, role, active, created_at, updated_at 
       FROM staff 
       WHERE staff_id = ?
     `;
@@ -68,12 +68,12 @@ exports.getStaffById = (req, res) => {
  */
 exports.createStaff = async (req, res) => {
   try {
-    const { first_name, last_name, email, password, phone_number, role, active } = req.body;
+    const { first_name, last_name, nic, email, password, phone_number, role, active } = req.body;
     
     // Validate required fields
-    if (!first_name || !last_name || !email || !password || !role) {
+    if (!first_name || !last_name || !nic || !email || !password || !role) {
       return res.status(400).json({ 
-        message: 'First name, last name, email, password, and role are required' 
+        message: 'First name, last name, NIC, email, password, and role are required' 
       });
     }
     
@@ -91,58 +91,74 @@ exports.createStaff = async (req, res) => {
         return res.status(400).json({ message: 'Email already in use' });
       }
       
-      // Hash the password
-      try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+      // Check if NIC already exists
+      db.query('SELECT * FROM staff WHERE nic = ?', [nic], async (err, nicResults) => {
+        if (err) {
+          console.error('Error checking NIC uniqueness:', err);
+          return res.status(500).json({ 
+            message: 'Error creating staff member', 
+            error: err.message 
+          });
+        }
         
-        // Create staff object
-        const newStaff = {
-          first_name,
-          last_name,
-          email,
-          password: hashedPassword,
-          phone_number: phone_number || null,
-          role,
-          active: active !== undefined ? active : true
-        };
+        if (nicResults.length > 0) {
+          return res.status(400).json({ message: 'NIC already in use' });
+        }
         
-        // Insert into database
-        db.query('INSERT INTO staff SET ?', newStaff, (err, result) => {
-          if (err) {
-            console.error('Error creating staff member:', err);
-            return res.status(500).json({ 
-              message: 'Error creating staff member', 
-              error: err.message 
-            });
-          }
+        // Hash the password
+        try {
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(password, salt);
           
-          // Get the created staff without password
-          const query = `
-            SELECT staff_id, first_name, last_name, email, phone_number, role, active, created_at, updated_at 
-            FROM staff 
-            WHERE staff_id = ?
-          `;
+          // Create staff object
+          const newStaff = {
+            first_name,
+            last_name,
+            nic,
+            email,
+            password: hashedPassword,
+            phone_number: phone_number || null,
+            role,
+            active: active !== undefined ? active : true
+          };
           
-          db.query(query, [result.insertId], (err, staffResult) => {
+          // Insert into database
+          db.query('INSERT INTO staff SET ?', newStaff, (err, result) => {
             if (err) {
-              console.error('Error fetching created staff:', err);
-              return res.status(201).json({
-                message: 'Staff member created successfully',
-                staff_id: result.insertId
+              console.error('Error creating staff member:', err);
+              return res.status(500).json({ 
+                message: 'Error creating staff member', 
+                error: err.message 
               });
             }
             
-            res.status(201).json(staffResult[0]);
+            // Get the created staff without password
+            const query = `
+              SELECT staff_id, first_name, last_name, nic, email, phone_number, role, active, created_at, updated_at 
+              FROM staff 
+              WHERE staff_id = ?
+            `;
+            
+            db.query(query, [result.insertId], (err, staffResult) => {
+              if (err) {
+                console.error('Error fetching created staff:', err);
+                return res.status(201).json({
+                  message: 'Staff member created successfully',
+                  staff_id: result.insertId
+                });
+              }
+              
+              res.status(201).json(staffResult[0]);
+            });
           });
-        });
-      } catch (hashError) {
-        console.error('Error hashing password:', hashError);
-        return res.status(500).json({ 
-          message: 'Error creating staff member', 
-          error: hashError.message 
-        });
-      }
+        } catch (hashError) {
+          console.error('Error hashing password:', hashError);
+          return res.status(500).json({ 
+            message: 'Error creating staff member', 
+            error: hashError.message 
+          });
+        }
+      });
     });
   } catch (error) {
     console.error('Server error in createStaff:', error);
@@ -156,12 +172,12 @@ exports.createStaff = async (req, res) => {
 exports.updateStaff = async (req, res) => {
   try {
     const staffId = req.params.id;
-    const { first_name, last_name, email, password, phone_number, role, active } = req.body;
+    const { first_name, last_name, nic, email, password, phone_number, role, active } = req.body;
     
     // Validate required fields
-    if (!first_name || !last_name || !email || !role) {
+    if (!first_name || !last_name || !nic || !email || !role) {
       return res.status(400).json({ 
-        message: 'First name, last name, email, and role are required' 
+        message: 'First name, last name, NIC, email, and role are required' 
       });
     }
     
@@ -193,62 +209,78 @@ exports.updateStaff = async (req, res) => {
           return res.status(400).json({ message: 'Email already in use by another staff member' });
         }
         
-        // Create update object
-        const updateData = {
-          first_name,
-          last_name,
-          email,
-          phone_number: phone_number || null,
-          role
-        };
-        
-        // Only include active if it's explicitly defined in the request
-        if (active !== undefined) {
-          updateData.active = active;
-        }
-        
-        // If password is provided, hash it
-        if (password) {
-          try {
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(password, salt);
-            updateData.password = hashedPassword;
-          } catch (hashError) {
-            console.error('Error hashing password:', hashError);
-            return res.status(500).json({ 
-              message: 'Error updating staff member', 
-              error: hashError.message 
-            });
-          }
-        }
-        
-        // Update in database
-        db.query('UPDATE staff SET ? WHERE staff_id = ?', [updateData, staffId], (err, result) => {
+        // Check if NIC already exists for a different staff member
+        db.query('SELECT * FROM staff WHERE nic = ? AND staff_id != ?', [nic, staffId], async (err, nicResults) => {
           if (err) {
-            console.error('Error updating staff member:', err);
+            console.error('Error checking NIC uniqueness:', err);
             return res.status(500).json({ 
               message: 'Error updating staff member', 
               error: err.message 
             });
           }
           
-          // Get the updated staff without password
-          const query = `
-            SELECT staff_id, first_name, last_name, email, phone_number, role, active, created_at, updated_at 
-            FROM staff 
-            WHERE staff_id = ?
-          `;
+          if (nicResults.length > 0) {
+            return res.status(400).json({ message: 'NIC already in use by another staff member' });
+          }
           
-          db.query(query, [staffId], (err, staffResult) => {
+          // Create update object
+          const updateData = {
+            first_name,
+            last_name,
+            nic,
+            email,
+            phone_number: phone_number || null,
+            role
+          };
+          
+          // Only include active if it's explicitly defined in the request
+          if (active !== undefined) {
+            updateData.active = active;
+          }
+          
+          // If password is provided, hash it
+          if (password) {
+            try {
+              const salt = await bcrypt.genSalt(10);
+              const hashedPassword = await bcrypt.hash(password, salt);
+              updateData.password = hashedPassword;
+            } catch (hashError) {
+              console.error('Error hashing password:', hashError);
+              return res.status(500).json({ 
+                message: 'Error updating staff member', 
+                error: hashError.message 
+              });
+            }
+          }
+          
+          // Update in database
+          db.query('UPDATE staff SET ? WHERE staff_id = ?', [updateData, staffId], (err, result) => {
             if (err) {
-              console.error('Error fetching updated staff:', err);
-              return res.status(200).json({
-                message: 'Staff member updated successfully',
-                staff_id: staffId
+              console.error('Error updating staff member:', err);
+              return res.status(500).json({ 
+                message: 'Error updating staff member', 
+                error: err.message 
               });
             }
             
-            res.json(staffResult[0]);
+            // Get the updated staff without password
+            const query = `
+              SELECT staff_id, first_name, last_name, nic, email, phone_number, role, active, created_at, updated_at 
+              FROM staff 
+              WHERE staff_id = ?
+            `;
+            
+            db.query(query, [staffId], (err, staffResult) => {
+              if (err) {
+                console.error('Error fetching updated staff:', err);
+                return res.status(200).json({
+                  message: 'Staff member updated successfully',
+                  staff_id: staffId
+                });
+              }
+              
+              res.json(staffResult[0]);
+            });
           });
         });
       });
