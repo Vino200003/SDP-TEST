@@ -7,9 +7,9 @@ import {
   createStaff, 
   updateStaff, 
   deleteStaff,
-  checkServerAvailability 
+  checkServerAvailability,
+  serverStatus 
 } from '../services/staffService';
-import { serverStatus } from '../utils/mockData';
 import '../styles/StaffManagement.css';
 
 function StaffManagement() {
@@ -29,13 +29,17 @@ function StaffManagement() {
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchCategory, setSearchCategory] = useState('all');
   
   // Stats for dashboard
   const [stats, setStats] = useState({
     total: 0,
     waiters: 0,
     chefs: 0,
-    delivery: 0
+    delivery: 0,
+    active: 0,
+    inactive: 0
   });
   
   // Form state for adding/editing staff
@@ -44,8 +48,10 @@ function StaffManagement() {
     last_name: '',
     email: '',
     password: '',
+    confirmPassword: '', // Add confirm password field
     phone_number: '',
-    role: 'waiter'
+    role: 'waiter',
+    active: true
   });
   
   // Load staff on component mount
@@ -57,7 +63,7 @@ function StaffManagement() {
   // Update filtered staff when search or filter changes
   useEffect(() => {
     filterStaff();
-  }, [searchTerm, roleFilter, staff]);
+  }, [searchTerm, roleFilter, statusFilter, staff, searchCategory]);
   
   // Check server status
   const checkServerConnection = async () => {
@@ -78,7 +84,9 @@ function StaffManagement() {
         total: data.length,
         waiters: data.filter(s => s.role === 'waiter').length,
         chefs: data.filter(s => s.role === 'chef').length,
-        delivery: data.filter(s => s.role === 'delivery').length
+        delivery: data.filter(s => s.role === 'delivery').length,
+        active: data.filter(s => s.active).length,
+        inactive: data.filter(s => !s.active).length
       };
       setStats(stats);
     } catch (error) {
@@ -89,7 +97,7 @@ function StaffManagement() {
     }
   };
   
-  // Filter staff based on search term and role filter
+  // Filter staff based on search term, role filter, and active status
   const filterStaff = () => {
     let filtered = [...staff];
     
@@ -100,15 +108,38 @@ function StaffManagement() {
       );
     }
     
-    // Apply search term filter
+    // Apply active status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(member => 
+        (statusFilter === 'active' ? member.active : !member.active)
+      );
+    }
+    
+    // Apply search term filter based on selected category
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(member => 
-        member.first_name.toLowerCase().includes(search) ||
-        member.last_name.toLowerCase().includes(search) ||
-        member.email.toLowerCase().includes(search) ||
-        member.phone_number?.toLowerCase().includes(search)
-      );
+      filtered = filtered.filter(member => {
+        if (searchCategory === 'all') {
+          return (
+            member.first_name.toLowerCase().includes(search) ||
+            member.last_name.toLowerCase().includes(search) ||
+            member.email.toLowerCase().includes(search) ||
+            (member.phone_number && member.phone_number.toLowerCase().includes(search))
+          );
+        } else if (searchCategory === 'name') {
+          return (
+            member.first_name.toLowerCase().includes(search) ||
+            member.last_name.toLowerCase().includes(search) ||
+            `${member.first_name.toLowerCase()} ${member.last_name.toLowerCase()}`.includes(search)
+          );
+        } else if (searchCategory === 'email') {
+          return member.email.toLowerCase().includes(search);
+        } else if (searchCategory === 'phone') {
+          return member.phone_number && member.phone_number.toLowerCase().includes(search);
+        } else {
+          return false;
+        }
+      });
     }
     
     setFilteredStaff(filtered);
@@ -145,8 +176,17 @@ function StaffManagement() {
         return;
       }
       
-      // Create new staff member
-      const newStaff = await createStaff(staffForm);
+      // Check if passwords match
+      if (staffForm.password !== staffForm.confirmPassword) {
+        alert('Passwords do not match');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Create new staff member - remove confirmPassword as it's not needed in the backend
+      const staffData = {...staffForm};
+      delete staffData.confirmPassword;
+      const newStaff = await createStaff(staffData);
       
       setStaff([...staff, newStaff]);
       setIsAddModalOpen(false);
@@ -157,7 +197,9 @@ function StaffManagement() {
       setStats({
         ...stats,
         total: stats.total + 1,
-        [newStaff.role + 's']: stats[newStaff.role + 's'] + 1
+        [newStaff.role + 's']: stats[newStaff.role + 's'] + 1,
+        active: newStaff.active ? stats.active + 1 : stats.active,
+        inactive: !newStaff.active ? stats.inactive + 1 : stats.inactive
       });
     } catch (error) {
       console.error('Error adding staff:', error);
@@ -199,6 +241,7 @@ function StaffManagement() {
       
       // Update staff array with the edited staff member
       const previousRole = staff.find(s => s.staff_id === updatedStaff.staff_id)?.role;
+      const previousActiveStatus = staff.find(s => s.staff_id === updatedStaff.staff_id)?.active;
       
       setStaff(staff.map(member => 
         member.staff_id === updatedStaff.staff_id ? updatedStaff : member
@@ -208,12 +251,14 @@ function StaffManagement() {
       resetForm();
       alert('Staff member updated successfully!');
       
-      // Update stats if role changed
-      if (previousRole !== updatedStaff.role) {
+      // Update stats if role or active status changed
+      if (previousRole !== updatedStaff.role || previousActiveStatus !== updatedStaff.active) {
         setStats({
           ...stats,
           [previousRole + 's']: stats[previousRole + 's'] - 1,
-          [updatedStaff.role + 's']: stats[updatedStaff.role + 's'] + 1
+          [updatedStaff.role + 's']: stats[updatedStaff.role + 's'] + 1,
+          active: updatedStaff.active ? stats.active + 1 : stats.active - 1,
+          inactive: !updatedStaff.active ? stats.inactive + 1 : stats.inactive - 1
         });
       }
     } catch (error) {
@@ -240,7 +285,9 @@ function StaffManagement() {
       setStats({
         ...stats,
         total: stats.total - 1,
-        [selectedStaff.role + 's']: stats[selectedStaff.role + 's'] - 1
+        [selectedStaff.role + 's']: stats[selectedStaff.role + 's'] - 1,
+        active: selectedStaff.active ? stats.active - 1 : stats.active,
+        inactive: !selectedStaff.active ? stats.inactive - 1 : stats.inactive
       });
     } catch (error) {
       console.error('Error deleting staff:', error);
@@ -273,8 +320,10 @@ function StaffManagement() {
       last_name: '',
       email: '',
       password: '',
+      confirmPassword: '', // Reset confirm password too
       phone_number: '',
-      role: 'waiter'
+      role: 'waiter',
+      active: true
     });
   };
   
@@ -321,18 +370,39 @@ function StaffManagement() {
             <h3>Delivery</h3>
             <p className="stat-number">{stats.delivery}</p>
           </div>
+          <div className="staff-stat-card active">
+            <h3>Active</h3>
+            <p className="stat-number">{stats.active || 0}</p>
+          </div>
+          <div className="staff-stat-card inactive">
+            <h3>Inactive</h3>
+            <p className="stat-number">{stats.inactive || 0}</p>
+          </div>
         </div>
         
-        {/* Filters and actions */}
+        {/* Filters and actions - with status filter */}
         <div className="filters-section">
           <div className="search-and-filter">
-            <div className="search-bar">
-              <input
-                type="text"
-                placeholder="Search by name, email or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="search-container">
+              <div className="search-category-selector">
+                <select
+                  value={searchCategory}
+                  onChange={(e) => setSearchCategory(e.target.value)}
+                >
+                  <option value="all">All Fields</option>
+                  <option value="name">Name</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                </select>
+              </div>
+              <div className="search-bar">
+                <input
+                  type="text"
+                  placeholder={`Search by ${searchCategory === 'all' ? 'name, email or phone' : searchCategory}...`}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
             
             <div className="role-filter">
@@ -343,7 +413,18 @@ function StaffManagement() {
                 <option value="all">All Roles</option>
                 <option value="waiter">Waiters</option>
                 <option value="chef">Chefs</option>
-                <option value="delivery">Delivery</option>
+                <option value="delivery">Delivery Staff</option>
+              </select>
+            </div>
+            
+            <div className="status-filter">
+              <select 
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
           </div>
@@ -374,6 +455,7 @@ function StaffManagement() {
                   <th>Email</th>
                   <th>Phone</th>
                   <th>Role</th>
+                  <th>Status</th>
                   <th>Created At</th>
                   <th>Actions</th>
                 </tr>
@@ -389,6 +471,11 @@ function StaffManagement() {
                       <td>
                         <span className={`role-badge ${member.role}`}>
                           {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${member.active ? 'active' : 'inactive'}`}>
+                          {member.active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td>{formatDate(member.created_at)}</td>
@@ -412,7 +499,7 @@ function StaffManagement() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="no-staff">
+                    <td colSpan="8" className="no-staff">
                       No staff members match your search or filter criteria.
                     </td>
                   </tr>
@@ -487,6 +574,27 @@ function StaffManagement() {
                   <small className="form-hint">Minimum 6 characters</small>
                 </div>
                 
+                {/* Add Confirm Password field */}
+                <div className="form-group">
+                  <label htmlFor="confirmPassword">Confirm Password</label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={staffForm.confirmPassword}
+                    onChange={handleFormChange}
+                    required
+                    minLength="6"
+                  />
+                  <small className="form-hint">
+                    {staffForm.password && staffForm.confirmPassword && 
+                      (staffForm.password === staffForm.confirmPassword 
+                        ? <span className="password-match">Passwords match</span> 
+                        : <span className="password-mismatch">Passwords do not match</span>)
+                    }
+                  </small>
+                </div>
+                
                 <div className="form-group">
                   <label htmlFor="phone_number">Phone Number</label>
                   <input
@@ -514,6 +622,23 @@ function StaffManagement() {
                   </select>
                 </div>
                 
+                <div className="form-group">
+                  <label htmlFor="active">Status</label>
+                  <div className="toggle-container">
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="active"
+                        name="active"
+                        checked={staffForm.active}
+                        onChange={(e) => setStaffForm({...staffForm, active: e.target.checked})}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                    <span className="toggle-label">{staffForm.active ? 'Active' : 'Inactive'}</span>
+                  </div>
+                </div>
+                
                 <div className="form-actions">
                   <button 
                     type="button" 
@@ -525,7 +650,7 @@ function StaffManagement() {
                   <button 
                     type="submit" 
                     className="submit-btn"
-                    disabled={isLoading}
+                    disabled={isLoading || (staffForm.password !== staffForm.confirmPassword && staffForm.confirmPassword)}
                   >
                     {isLoading ? 'Adding...' : 'Add Staff'}
                   </button>
@@ -624,6 +749,23 @@ function StaffManagement() {
                     <option value="chef">Chef</option>
                     <option value="delivery">Delivery</option>
                   </select>
+                </div>
+                
+                <div className="form-group">
+                  <label htmlFor="edit_active">Status</label>
+                  <div className="toggle-container">
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        id="edit_active"
+                        name="active"
+                        checked={staffForm.active}
+                        onChange={(e) => setStaffForm({...staffForm, active: e.target.checked})}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                    <span className="toggle-label">{staffForm.active ? 'Active' : 'Inactive'}</span>
+                  </div>
                 </div>
                 
                 <div className="form-actions">

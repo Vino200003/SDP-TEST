@@ -12,6 +12,7 @@ const adminOrderRoutes = require('./routes/adminOrderRoutes');
 const healthRoutes = require('./routes/healthRoutes'); // Add health check route
 const inventoryRoutes = require('./routes/inventoryRoutes'); // Add inventory routes
 const supplierRoutes = require('./routes/supplierRoutes'); // Add supplier routes
+const staffRoutes = require('./routes/staffRoutes'); // Add staff routes
 
 const app = express();
 
@@ -51,6 +52,7 @@ app.use('/api/admin/orders', adminOrderRoutes);
 app.use('/api/health', healthRoutes); // Add health check route
 app.use('/api/inventory', inventoryRoutes); // Register inventory routes
 app.use('/api/suppliers', supplierRoutes); // Register supplier routes
+app.use('/api/staff', staffRoutes); // Register staff routes
 
 // Default route - add more logging to help with debugging
 app.get('/', (req, res) => {

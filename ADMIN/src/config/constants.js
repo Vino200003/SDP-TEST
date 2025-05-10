@@ -2,8 +2,8 @@
  * Application constants
  */
 
-// API URL - adjust based on your backend setup
-export const API_URL = 'http://localhost:5000';
+// API URL configuration
+export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // Authentication settings
 export const AUTH_TOKEN_KEY = 'auth_token';
@@ -29,4 +29,22 @@ export const ORDER_TYPES = {
   DELIVERY: 'Delivery',
   TAKEAWAY: 'Takeaway',
   DINE_IN: 'Dine-in'
+};
+
+// Table pagination defaults
+export const DEFAULT_PAGE_SIZE = 10;
+export const DEFAULT_PAGE = 1;
+
+// Role options for staff
+export const STAFF_ROLES = [
+  { value: 'waiter', label: 'Waiter' },
+  { value: 'chef', label: 'Chef' },
+  { value: 'delivery', label: 'Delivery' }
+];
+
+// Format date to local string
+export const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 };
