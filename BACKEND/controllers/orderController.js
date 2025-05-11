@@ -120,7 +120,21 @@ exports.getOrderById = (req, res) => {
 
 // Create a new order
 exports.createOrder = (req, res) => {
-  const { user_id, order_type, items, delivery_person_id = null, delivery_address = null } = req.body;
+  const { 
+    user_id, 
+    order_type, 
+    items, 
+    delivery_person_id = null, 
+    delivery_address = null,
+    zone_id = null,  // Add zone_id parameter
+    delivery_notes = '',
+    special_instructions = '',
+    subtotal,
+    service_fee,
+    delivery_fee,
+    total_amount,
+    payment_method
+  } = req.body;
   
   if (!user_id || !order_type || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ message: 'Invalid order data. Required fields: user_id, order_type, items (array)' });
@@ -170,17 +184,30 @@ exports.createOrder = (req, res) => {
         });
       }
       
-      // Calculate total amount
-      const total_amount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      // Calculate total amount if not provided
+      let calculatedTotal = total_amount;
+      if (!calculatedTotal) {
+        calculatedTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      }
       
-      // Create order
+      // Create order - include all the new fields
       const orderData = {
         user_id,
         order_type,
-        total_amount,
+        order_status: 'Pending',
+        sub_total: subtotal || calculatedTotal,
+        service_fee: service_fee || 0,
+        delivery_fee: delivery_fee || 0,
+        total_amount: calculatedTotal,
         delivery_person_id: delivery_person_id,
-        delivery_address: order_type === 'Delivery' ? delivery_address : '' // Ensure delivery address is saved for delivery orders
+        delivery_address: order_type === 'Delivery' ? delivery_address : '',
+        zone_id: order_type === 'Delivery' ? zone_id : null,  // Add zone_id
+        special_instructions: special_instructions || delivery_notes || '',
+        payment_type: payment_method || 'cash',
+        payment_status: 'unpaid'
       };
+      
+      console.log('Creating order with data:', orderData);
       
       db.query('INSERT INTO orders SET ?', orderData, (orderErr, orderResult) => {
         if (orderErr) {
@@ -231,7 +258,7 @@ exports.createOrder = (req, res) => {
             res.status(201).json({
               message: 'Order created successfully',
               order_id,
-              total_amount
+              total_amount: calculatedTotal
             });
           });
         });

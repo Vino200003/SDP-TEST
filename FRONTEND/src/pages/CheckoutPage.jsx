@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Footer from '../components/Footer';
-import { getUserProfile } from '../utils/api';
+import { getUserProfile, getDeliveryZones } from '../utils/api';
 import '../styles/CheckoutPage.css';
 
 const CheckoutPage = () => {
@@ -9,6 +9,7 @@ const CheckoutPage = () => {
     address: '',
     city: '',
     zipCode: '',
+    zoneId: '', // Changed from gsDivision to zoneId
     deliveryNotes: '',
     paymentMethod: 'credit-card',
     cardName: '',
@@ -35,10 +36,15 @@ const CheckoutPage = () => {
   // New state to store user profile data and control address editing
   const [userProfile, setUserProfile] = useState(null);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  
+  // New state for delivery zones
+  const [deliveryZones, setDeliveryZones] = useState([]);
+  const [selectedZone, setSelectedZone] = useState(null);
+  const deliveryFeeRef = useRef(null);
 
-  // Fetch user profile and cart from localStorage
+  // Fetch user profile, cart, and delivery zones
   useEffect(() => {
-    const fetchUserProfileAndCart = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       
       // Fetch cart data
@@ -55,6 +61,23 @@ const CheckoutPage = () => {
       }
       
       setCart(storedCart);
+      
+      // Fetch delivery zones
+      try {
+        const zones = await getDeliveryZones();
+        setDeliveryZones(zones);
+      } catch (error) {
+        console.error('Error fetching delivery zones:', error);
+        // Fallback to hardcoded values if API fails
+        setDeliveryZones([
+          { zone_id: 1, gs_division: 'Vavuniya South', delivery_fee: 5.00, estimated_delivery_time_min: 30 },
+          { zone_id: 2, gs_division: 'Vavuniya North', delivery_fee: 6.50, estimated_delivery_time_min: 40 },
+          { zone_id: 3, gs_division: 'Vavuniya', delivery_fee: 4.50, estimated_delivery_time_min: 25 },
+          { zone_id: 4, gs_division: 'Vengalacheddikulam', delivery_fee: 8.00, estimated_delivery_time_min: 50 },
+          { zone_id: 5, gs_division: 'Nedunkeni', delivery_fee: 7.50, estimated_delivery_time_min: 45 },
+          { zone_id: 6, gs_division: 'Cheddikulam', delivery_fee: 7.00, estimated_delivery_time_min: 45 }
+        ]);
+      }
       
       // Try to fetch user profile data
       try {
@@ -97,10 +120,10 @@ const CheckoutPage = () => {
       setIsLoading(false);
     };
 
-    fetchUserProfileAndCart();
+    fetchData();
   }, []);
 
-  // Calculate totals whenever cart or delivery method changes
+  // Calculate totals whenever cart or delivery method or delivery fee changes
   useEffect(() => {
     const newSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     setSubtotal(newSubtotal);
@@ -109,12 +132,11 @@ const CheckoutPage = () => {
     const newServiceFee = newSubtotal * 0.05;
     setServiceFee(newServiceFee);
     
-    // Set delivery fee based on selected method
+    // Set delivery fee based on selected method and zone
     if (deliveryMethod === 'pickup') {
       setDeliveryFee(0);
-    } else {
-      setDeliveryFee(5.00);
     }
+    // The deliveryFee is already set when the zone is selected
     
     // Calculate new total with service fee
     const newTotal = newSubtotal + newServiceFee + deliveryFee;
@@ -124,6 +146,30 @@ const CheckoutPage = () => {
   // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Special handling for zoneId
+    if (name === 'zoneId') {
+      const selectedZone = deliveryZones.find(zone => zone.zone_id === parseInt(value));
+      if (selectedZone) {
+        setSelectedZone(selectedZone);
+        
+        // Update delivery fee based on the selected zone
+        if (deliveryMethod === 'delivery') {
+          setDeliveryFee(parseFloat(selectedZone.delivery_fee));
+          
+          // Add highlight effect to the delivery fee
+          if (deliveryFeeRef.current) {
+            deliveryFeeRef.current.classList.add('highlight');
+            setTimeout(() => {
+              if (deliveryFeeRef.current) {
+                deliveryFeeRef.current.classList.remove('highlight');
+              }
+            }, 1000);
+          }
+        }
+      }
+    }
+    
     setFormData({
       ...formData,
       [name]: value
@@ -203,6 +249,9 @@ const CheckoutPage = () => {
         // If not editing but no profile address exists
         errors.address = 'Delivery address is required. Please edit your address.';
       }
+      
+      // Always validate Zone ID for delivery regardless of editing status
+      if (!formData.zoneId) errors.zoneId = 'Delivery zone is required';
     } else {
       // Validate pickup date and time
       if (!formData.pickupDate) errors.pickupDate = 'Pickup date is required';
@@ -268,6 +317,17 @@ const CheckoutPage = () => {
   const handleDeliveryMethodChange = (method) => {
     setDeliveryMethod(method);
     
+    // Update delivery fee based on method
+    if (method === 'pickup') {
+      setDeliveryFee(0);
+    } else if (selectedZone) {
+      // If returning to delivery and a zone is selected, use its fee
+      setDeliveryFee(parseFloat(selectedZone.delivery_fee));
+    } else {
+      // Default fee if no zone selected
+      setDeliveryFee(5.00);
+    }
+    
     // Clear address-related errors if switching to pickup
     if (method === 'pickup') {
       setFormErrors(prevErrors => {
@@ -275,6 +335,7 @@ const CheckoutPage = () => {
         delete newErrors.address;
         delete newErrors.city;
         delete newErrors.zipCode;
+        delete newErrors.zoneId;
         return newErrors;
       });
     } else {
@@ -331,9 +392,12 @@ const CheckoutPage = () => {
         return;
       }
       
-      // Get the formatted delivery address 
+      // Get the formatted delivery address
       const deliveryAddressToUse = deliveryMethod === 'delivery' ? 
         (isEditingAddress ? `${formData.address}, ${formData.city}, ${formData.zipCode}` : userProfile.address) : '';
+      
+      // Get the selected delivery zone's gs_division for inclusion in the address
+      const selectedZoneGsDivision = selectedZone ? selectedZone.gs_division : '';
       
       // Prepare order data
       const orderData = {
@@ -352,7 +416,8 @@ const CheckoutPage = () => {
         delivery_fee: parseFloat(deliveryFee.toFixed(2)),
         total_amount: parseFloat(total.toFixed(2)),
         payment_method: formData.paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash',
-        delivery_address: deliveryAddressToUse, // Use the properly formatted address
+        delivery_address: deliveryAddressToUse, // Base address
+        zone_id: deliveryMethod === 'delivery' ? parseInt(formData.zoneId) : null, // Add zone_id to order
         delivery_notes: formData.deliveryNotes || '',
         pickup_time: deliveryMethod === 'pickup' ? 
           `${formData.pickupDate} ${formData.pickupTime}` : null,
@@ -383,9 +448,17 @@ const CheckoutPage = () => {
         body: JSON.stringify(orderData)
       });
       
+      let errorData;
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to place order');
+        try {
+          errorData = await response.json();
+          console.error('Server error response:', errorData);
+          throw new Error(errorData.message || `Failed to place order: ${response.status} ${response.statusText}`);
+        } catch (jsonError) {
+          // If parsing JSON fails, use the raw response
+          console.error('Error parsing error response:', jsonError);
+          throw new Error(`Failed to place order: ${response.status} ${response.statusText}`);
+        }
       }
       
       const data = await response.json();
@@ -563,6 +636,31 @@ const CheckoutPage = () => {
                         </div>
                       </>
                     )}
+                    
+                    {/* Updated GS Division dropdown to use data from API */}
+                    <div className="form-group gs-division-container">
+                      <label htmlFor="zoneId">Delivery Zone <span className="required">*</span></label>
+                      <select
+                        id="zoneId"
+                        name="zoneId"
+                        value={formData.zoneId}
+                        onChange={handleChange}
+                        className={formErrors.zoneId ? 'error' : ''}
+                      >
+                        <option value="">Select Delivery Zone</option>
+                        {deliveryZones.map(zone => (
+                          <option key={zone.zone_id} value={zone.zone_id}>
+                            {zone.gs_division} - Delivery Fee: LKR {parseFloat(zone.delivery_fee).toFixed(2)}
+                          </option>
+                        ))}
+                      </select>
+                      {formErrors.zoneId && <span className="error-text">{formErrors.zoneId}</span>}
+                      {selectedZone && (
+                        <p className="pickup-time-note">
+                          Estimated delivery time: {selectedZone.estimated_delivery_time_min} minutes
+                        </p>
+                      )}
+                    </div>
                     
                     <div className="form-group">
                       <label htmlFor="deliveryNotes">Delivery Instructions (Optional)</label>
@@ -746,7 +844,7 @@ const CheckoutPage = () => {
                       <span>LKR {formatPrice(serviceFee)}</span>
                     </div>
                     {deliveryMethod === 'delivery' && (
-                      <div className="summary-row">
+                      <div className="summary-row" ref={deliveryFeeRef}>
                         <span>Delivery Fee</span>
                         <span>LKR {formatPrice(deliveryFee)}</span>
                       </div>

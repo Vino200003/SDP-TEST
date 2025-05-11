@@ -745,3 +745,39 @@ export const cancelOrder = async (orderId) => {
     throw error;
   }
 };
+
+/**
+ * Fetch all active delivery zones
+ * @returns {Promise} Promise object that resolves to an array of delivery zones
+ */
+export const getDeliveryZones = async () => {
+  try {
+    // First try to fetch from API
+    const response = await fetch('http://localhost:5000/api/delivery-zones', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch delivery zones');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching delivery zones:', error);
+    
+    // Return hardcoded fallback values if API call fails
+    console.log('Using fallback delivery zones data');
+    return [
+      { zone_id: 1, gs_division: 'Vavuniya South', delivery_fee: 5.00, estimated_delivery_time_min: 30 },
+      { zone_id: 2, gs_division: 'Vavuniya North', delivery_fee: 6.50, estimated_delivery_time_min: 40 },
+      { zone_id: 3, gs_division: 'Vavuniya', delivery_fee: 4.50, estimated_delivery_time_min: 25 },
+      { zone_id: 4, gs_division: 'Vengalacheddikulam', delivery_fee: 8.00, estimated_delivery_time_min: 50 },
+      { zone_id: 5, gs_division: 'Nedunkeni', delivery_fee: 7.50, estimated_delivery_time_min: 45 },
+      { zone_id: 6, gs_division: 'Cheddikulam', delivery_fee: 7.00, estimated_delivery_time_min: 45 }
+    ];
+  }
+};

@@ -128,6 +128,17 @@
   background-color: #d4af37;
 }
 
+/* Delivery fee highlight effect when it changes */
+.highlight {
+  animation: highlight-animation 1s ease-in-out;
+}
+
+@keyframes highlight-animation {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(212, 175, 55, 0.2); }
+  100% { background-color: transparent; }
+}
+
 /* Form rows and groups */
 .form-row {
   display: flex;
@@ -208,6 +219,20 @@
 
 .form-group select.error {
   border-color: #e74c3c;
+}
+
+/* Add styles for required field indicator */
+.required {
+  color: #e74c3c;
+  margin-left: 3px;
+}
+
+/* Add specific styles for the GS Division container */
+.gs-division-container {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #f0f0f0;
 }
 
 /* Pickup info text */
