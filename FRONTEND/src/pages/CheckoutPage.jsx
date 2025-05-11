@@ -62,10 +62,37 @@ const CheckoutPage = () => {
       
       setCart(storedCart);
       
+      // Get delivery method from localStorage (set on the cart page)
+      const storedDeliveryMethod = localStorage.getItem('deliveryMethod');
+      if (storedDeliveryMethod) {
+        setDeliveryMethod(storedDeliveryMethod);
+      }
+      
       // Fetch delivery zones
       try {
         const zones = await getDeliveryZones();
         setDeliveryZones(zones);
+        
+        // Get selected zone from localStorage (set on the cart page)
+        const storedZoneId = localStorage.getItem('selectedZoneId');
+        if (storedZoneId) {
+          // Update form data with the selected zone
+          setFormData(prevData => ({
+            ...prevData,
+            zoneId: storedZoneId
+          }));
+          
+          // Find the selected zone object
+          const selectedZone = zones.find(zone => zone.zone_id === parseInt(storedZoneId));
+          if (selectedZone) {
+            setSelectedZone(selectedZone);
+            
+            // Update delivery fee based on the selected zone
+            if (storedDeliveryMethod !== 'pickup') {
+              setDeliveryFee(parseFloat(selectedZone.delivery_fee));
+            }
+          }
+        }
       } catch (error) {
         console.error('Error fetching delivery zones:', error);
         // Fallback to hardcoded values if API fails
@@ -155,6 +182,7 @@ const CheckoutPage = () => {
         
         // Update delivery fee based on the selected zone
         if (deliveryMethod === 'delivery') {
+          // Use the delivery fee from the selected zone
           setDeliveryFee(parseFloat(selectedZone.delivery_fee));
           
           // Add highlight effect to the delivery fee

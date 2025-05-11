@@ -127,11 +127,11 @@ exports.createOrder = (req, res) => {
     delivery_person_id = null, 
     delivery_address = null,
     zone_id = null,  // Add zone_id parameter
+    delivery_fee = 0,  // Accept delivery_fee from request
     delivery_notes = '',
     special_instructions = '',
     subtotal,
     service_fee,
-    delivery_fee,
     total_amount,
     payment_method
   } = req.body;
@@ -190,79 +190,113 @@ exports.createOrder = (req, res) => {
         calculatedTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       }
       
-      // Create order - include all the new fields
-      const orderData = {
-        user_id,
-        order_type,
-        order_status: 'Pending',
-        sub_total: subtotal || calculatedTotal,
-        service_fee: service_fee || 0,
-        delivery_fee: delivery_fee || 0,
-        total_amount: calculatedTotal,
-        delivery_person_id: delivery_person_id,
-        delivery_address: order_type === 'Delivery' ? delivery_address : '',
-        zone_id: order_type === 'Delivery' ? zone_id : null,  // Add zone_id
-        special_instructions: special_instructions || delivery_notes || '',
-        payment_type: payment_method || 'cash',
-        payment_status: 'unpaid'
-      };
-      
-      console.log('Creating order with data:', orderData);
-      
-      db.query('INSERT INTO orders SET ?', orderData, (orderErr, orderResult) => {
-        if (orderErr) {
-          return db.rollback(() => {
-            console.error('Error creating order:', orderErr);
-            res.status(500).json({ 
-              message: 'Error creating order', 
-              error: orderErr.message 
-            });
-          });
-        }
-        
-        const order_id = orderResult.insertId;
-        
-        // Insert order items
-        const orderItems = items.map(item => [
-          order_id,
-          item.menu_id,
-          item.quantity,
-          item.price
-        ]);
-        
-        const itemsQuery = 'INSERT INTO order_items (order_id, menu_id, quantity, price) VALUES ?';
-        
-        db.query(itemsQuery, [orderItems], (itemsErr) => {
-          if (itemsErr) {
+      // If zone_id is provided, verify it exists and get its delivery fee
+      if (zone_id && order_type === 'Delivery') {
+        db.query('SELECT delivery_fee FROM delivery_zones WHERE zone_id = ?', [zone_id], (zoneErr, zoneResults) => {
+          if (zoneErr) {
             return db.rollback(() => {
-              console.error('Error adding order items:', itemsErr);
+              console.error('Error validating delivery zone:', zoneErr);
               res.status(500).json({ 
-                message: 'Error adding order items', 
-                error: itemsErr.message 
+                message: 'Error validating delivery zone', 
+                error: zoneErr.message 
               });
             });
           }
           
-          // Commit transaction
-          db.commit(commitErr => {
-            if (commitErr) {
+          let zoneFee = delivery_fee; // Use provided fee as default
+          
+          if (zoneResults && zoneResults.length > 0) {
+            // Use the fee from the database
+            zoneFee = parseFloat(zoneResults[0].delivery_fee);
+          }
+          
+          continueCreateOrder(zoneFee);
+        });
+      } else {
+        // Continue with the provided delivery fee
+        continueCreateOrder(delivery_fee);
+      }
+      
+      function continueCreateOrder(finalDeliveryFee) {
+        // Calculate the total including delivery fee only once
+        const finalTotal = (subtotal || calculatedTotal) + 
+                          (service_fee || 0) + 
+                          (order_type === 'Delivery' ? finalDeliveryFee : 0);
+        
+        // Create order - include all the new fields
+        const orderData = {
+          user_id,
+          order_type,
+          order_status: 'Pending',
+          sub_total: subtotal || calculatedTotal,
+          service_fee: service_fee || 0,
+          delivery_fee: order_type === 'Delivery' ? finalDeliveryFee : 0,
+          total_amount: finalTotal, // Use the calculated final total
+          delivery_person_id: delivery_person_id,
+          delivery_address: order_type === 'Delivery' ? delivery_address : '',
+          zone_id: order_type === 'Delivery' ? zone_id : null,  // Add zone_id
+          special_instructions: special_instructions || delivery_notes || '',
+          payment_type: payment_method || 'cash',
+          payment_status: 'unpaid'
+        };
+        
+        console.log('Creating order with data:', orderData);
+        
+        db.query('INSERT INTO orders SET ?', orderData, (orderErr, orderResult) => {
+          if (orderErr) {
+            return db.rollback(() => {
+              console.error('Error creating order:', orderErr);
+              res.status(500).json({ 
+                message: 'Error creating order', 
+                error: orderErr.message 
+              });
+            });
+          }
+          
+          const order_id = orderResult.insertId;
+          
+          // Insert order items
+          const orderItems = items.map(item => [
+            order_id,
+            item.menu_id,
+            item.quantity,
+            item.price
+          ]);
+          
+          const itemsQuery = 'INSERT INTO order_items (order_id, menu_id, quantity, price) VALUES ?';
+          
+          db.query(itemsQuery, [orderItems], (itemsErr) => {
+            if (itemsErr) {
               return db.rollback(() => {
-                console.error('Error committing transaction:', commitErr);
+                console.error('Error adding order items:', itemsErr);
                 res.status(500).json({ 
-                  message: 'Error creating order', 
-                  error: commitErr.message 
+                  message: 'Error adding order items', 
+                  error: itemsErr.message 
                 });
               });
             }
             
-            res.status(201).json({
-              message: 'Order created successfully',
-              order_id,
-              total_amount: calculatedTotal
+            // Commit transaction
+            db.commit(commitErr => {
+              if (commitErr) {
+                return db.rollback(() => {
+                  console.error('Error committing transaction:', commitErr);
+                  res.status(500).json({ 
+                    message: 'Error creating order', 
+                    error: commitErr.message 
+                  });
+                });
+              }
+              
+              res.status(201).json({
+                message: 'Order created successfully',
+                order_id,
+                total_amount: calculatedTotal
+              });
             });
           });
         });
-      });
+      }
     });
   });
 };

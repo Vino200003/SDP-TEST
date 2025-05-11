@@ -8,4 +8,7 @@ router.get('/', deliveryZoneController.getAllDeliveryZones);
 // Get delivery zone by ID
 router.get('/:id', deliveryZoneController.getDeliveryZoneById);
 
+// Get delivery fee by zone ID
+router.get('/fee/:id', deliveryZoneController.getDeliveryFeeByZoneId);
+
 module.exports = router;

@@ -1,54 +1,53 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Footer from '../components/Footer';
 import '../styles/CartPage.css';
+import Footer from '../components/Footer';
 
 const CartPage = () => {
-  const navigate = useNavigate();
   const [cart, setCart] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [subtotal, setSubtotal] = useState(0);
-  const [serviceFee, setServiceFee] = useState(0); // Initialize to 0 instead of fixed value
-  const [deliveryFee, setDeliveryFee] = useState(5.00);
-  const [total, setTotal] = useState(0);
-  
-  useEffect(() => {
-    // Load cart from localStorage
-    const loadCart = () => {
-      setIsLoading(true);
-      try {
-        const storedCart = JSON.parse(localStorage.getItem('cart')) || [];
-        setCart(storedCart);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error loading cart from localStorage:", error);
-        setCart([]);
-        setIsLoading(false);
-      }
-    };
+  const [isLoading, setIsLoading] = useState(true);
 
-    loadCart();
+  // Load cart from localStorage on component mount
+  useEffect(() => {
+    setIsLoading(true);
+    try {
+      // Load cart
+      const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
+      setCart(cartItems);
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      setCart([]);
+    }
+    setIsLoading(false);
   }, []);
 
-  // Calculate totals whenever cart changes
+  // Calculate subtotal whenever cart items change
   useEffect(() => {
+    // Calculate subtotal
     const newSubtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     setSubtotal(newSubtotal);
-    
-    // Calculate service fee as 5% of subtotal
-    const newServiceFee = newSubtotal * 0.05;
-    setServiceFee(newServiceFee);
-    
-    // Calculate new total with service fee and delivery fee
-    const newTotal = newSubtotal + newServiceFee + deliveryFee;
-    setTotal(newTotal);
-  }, [cart, deliveryFee]);
+  }, [cart]);
 
-  // Format price for display
+  // Format price to always show 2 decimal places
   const formatPrice = (price) => {
     return parseFloat(price).toFixed(2);
   };
 
+  // Proceed to checkout
+  const proceedToCheckout = () => {
+    if (cart.length === 0) {
+      alert('Your cart is empty. Please add items before checkout.');
+      return;
+    }
+    
+    // Navigate to checkout page
+    if (window.navigateTo) {
+      window.navigateTo('/checkout');
+    } else {
+      window.location.href = '/checkout';
+    }
+  };
+  
   // Handle quantity change
   const handleQuantityChange = (index, change) => {
     const updatedCart = [...cart];
@@ -88,14 +87,13 @@ const CartPage = () => {
     window.dispatchEvent(new Event('cartUpdated'));
   };
 
-  // Proceed to checkout
-  const handleCheckout = () => {
-    navigate('/checkout');
-  };
-
   // Continue shopping
   const handleContinueShopping = () => {
-    navigate('/menu');
+    if (window.navigateTo) {
+      window.navigateTo('/menu');
+    } else {
+      window.location.href = '/menu';
+    }
   };
 
   if (isLoading) {
@@ -219,39 +217,22 @@ const CartPage = () => {
             <h3>Order Summary</h3>
             
             <div className="summary-details">
-              <div className="summary-row">
-                <span>Subtotal</span>
-                <span>LKR {formatPrice(subtotal)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Service Fee (5%)</span>
-                <span>LKR {formatPrice(serviceFee)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Delivery Fee</span>
-                <span>LKR {formatPrice(deliveryFee)}</span>
-              </div>
               <div className="summary-row total">
-                <span>Total</span>
-                <span>LKR {formatPrice(total)}</span>
+                <span className="summary-label">Subtotal:</span>
+                <span className="summary-value">LKR {formatPrice(subtotal)}</span>
               </div>
             </div>
             
-            <button 
-              className="checkout-btn"
-              onClick={handleCheckout}
-            >
-              <i className="fas fa-lock"></i> Proceed to Checkout
+            <button className="checkout-btn" onClick={proceedToCheckout}>
+              Proceed to Checkout
             </button>
             
-            <div className="payment-methods">
-              <p>We accept</p>
-              <div className="payment-icons">
-                <i className="fab fa-cc-visa"></i>
-                <i className="fab fa-cc-mastercard"></i>
-              </div>
-              <p className="payment-note">Secure payment processing</p>
-            </div>
+            <button 
+              className="continue-shopping"
+              onClick={handleContinueShopping}
+            >
+              Continue Shopping
+            </button>
           </div>
         </div>
       </div>

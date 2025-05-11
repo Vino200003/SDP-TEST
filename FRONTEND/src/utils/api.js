@@ -781,3 +781,31 @@ export const getDeliveryZones = async () => {
     ];
   }
 };
+
+/**
+ * Get delivery fee by zone ID
+ * @param {number} zoneId - Zone ID
+ * @returns {Promise} Promise object that resolves to the delivery fee
+ */
+export const getDeliveryFeeByZoneId = async (zoneId) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/delivery-zones/fee/${zoneId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch delivery fee');
+    }
+    
+    const data = await response.json();
+    return parseFloat(data.delivery_fee);
+  } catch (error) {
+    console.error('Error fetching delivery fee:', error);
+    // Return default delivery fee of 5.00 as fallback
+    return 5.00;
+  }
+};
