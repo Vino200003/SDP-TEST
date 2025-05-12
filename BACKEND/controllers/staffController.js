@@ -335,9 +335,12 @@ exports.deleteStaff = (req, res) => {
 };
 
 /**
- * Staff login (optional for future use)
+ * Staff login with email
  */
 exports.loginStaff = async (req, res) => {
+  console.log('Staff login endpoint accessed');
+  console.log('Request body:', req.body);
+  
   try {
     const { email, password } = req.body;
     
@@ -346,7 +349,35 @@ exports.loginStaff = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     
-    // Check if staff exists
+    // Demo credentials for testing - always accept these even without database
+    if ((email === 'kitchen@restaurant.com' && password === 'kitchen123') || 
+        (email === 'delivery@restaurant.com' && password === 'delivery123')) {
+      
+      // Determine role and login type based on email
+      const role = email.startsWith('kitchen') ? 'chef' : 'delivery';
+      const loginType = role === 'chef' ? 'kitchen' : 'delivery';
+      
+      console.log(`Demo login successful for ${email} as ${role}`);
+      
+      return res.json({
+        message: 'Login successful',
+        staff: {
+          email,
+          role,
+          loginType,
+          first_name: role === 'chef' ? 'Kitchen' : 'Delivery',
+          last_name: 'Staff'
+        }
+      });
+    }
+    
+    // Check if database connection is available
+    if (!db || !db.query) {
+      console.error('Database connection not available');
+      return res.status(500).json({ message: 'Database connection error' });
+    }
+    
+    // Check if staff exists in database
     db.query('SELECT * FROM staff WHERE email = ?', [email], async (err, results) => {
       if (err) {
         console.error('Error fetching staff:', err);
@@ -357,25 +388,53 @@ exports.loginStaff = async (req, res) => {
       }
       
       if (results.length === 0) {
+        console.log(`No staff found with email: ${email}`);
         return res.status(401).json({ message: 'Invalid credentials' });
       }
       
       const staff = results[0];
+      console.log(`Found staff with ID: ${staff.staff_id}, role: ${staff.role}`);
+      
+      // Check if staff is active
+      if (!staff.active) {
+        console.log(`Staff account is inactive: ${email}`);
+        return res.status(403).json({ message: 'Your account has been deactivated. Please contact the manager.' });
+      }
       
       // Check password
       try {
-        const isMatch = await bcrypt.compare(password, staff.password);
+        // For testing purposes, allow plaintext comparison if bcrypt fails
+        let isMatch = false;
+        
+        try {
+          isMatch = await bcrypt.compare(password, staff.password);
+        } catch (bcryptError) {
+          console.error('bcrypt comparison error:', bcryptError);
+          // If bcrypt fails, try direct comparison (only for development)
+          isMatch = (password === staff.password);
+        }
         
         if (!isMatch) {
+          console.log(`Invalid password for staff: ${email}`);
           return res.status(401).json({ message: 'Invalid credentials' });
         }
         
+        // Determine login type based on role
+        let loginType = 'other';
+        if (staff.role === 'chef') {
+          loginType = 'kitchen';
+        } else if (staff.role === 'delivery') {
+          loginType = 'delivery';
+        }
+        
+        console.log(`Staff login successful. Role: ${staff.role}, LoginType: ${loginType}`);
+        
         // Return staff data without password
-        const { password, ...staffData } = staff;
+        const { password: _, ...staffData } = staff;
         
         res.json({
           message: 'Login successful',
-          staff: staffData
+          staff: { ...staffData, loginType }
         });
       } catch (compareError) {
         console.error('Error comparing passwords:', compareError);

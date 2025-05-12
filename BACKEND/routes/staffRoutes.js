@@ -14,6 +14,9 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Staff API is working' });
 });
 
+// Staff login route - needs to be public for the login page to work
+router.post('/login', staffController.loginStaff);
+
 // For development purposes, we'll make these routes public temporarily
 // Later you should restore the adminAuthMiddleware.protectAdmin middleware
 router.get('/', staffController.getAllStaff);
@@ -22,8 +25,5 @@ router.get('/:id', staffController.getStaffById);
 router.post('/', staffController.createStaff);
 router.put('/:id', staffController.updateStaff);
 router.delete('/:id', staffController.deleteStaff);
-
-// Staff login (optional for future use)
-router.post('/login', staffController.loginStaff);
 
 module.exports = router;

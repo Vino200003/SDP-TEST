@@ -1,27 +1,72 @@
 import React, { useState } from 'react';
 import '../../styles/Login.css';
 import Logo from '../components/Logo';
+import axios from 'axios';
 
 const Login = ({ onLogin }) => {
-  const [staffId, setStaffId] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  // API URL - make sure this matches your backend
+  const API_URL = 'http://localhost:5000/api';
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setIsLoading(true);
     
-    // Kitchen staff mock credentials
-    const isKitchenStaff = staffId === 'K1001' && password === 'kitchen123';
+    // Demo credentials fallback
+    if ((email === 'kitchen@restaurant.com' && password === 'kitchen123') || 
+        (email === 'delivery@restaurant.com' && password === 'delivery123')) {
+      
+      const staffType = email.startsWith('kitchen') ? 'kitchen' : 'delivery';
+      console.log(`Using demo credentials for ${staffType} staff`);
+      
+      setTimeout(() => {
+        setIsLoading(false);
+        onLogin(staffType);
+      }, 500); // Small delay for better UX
+      
+      return;
+    }
     
-    // Delivery staff mock credentials
-    const isDeliveryStaff = staffId === 'D2001' && password === 'delivery123';
-    
-    if (isKitchenStaff) {
-      onLogin('kitchen');
-    } else if (isDeliveryStaff) {
-      onLogin('delivery');
-    } else {
-      setError('Invalid credentials. Please try again.');
+    try {
+      console.log(`Attempting to login with email: ${email}`);
+      
+      // Call the API endpoint
+      const response = await axios.post(`${API_URL}/staff/login`, {
+        email,
+        password
+      });
+      
+      console.log('Login API response:', response.data);
+      
+      // Check the response
+      if (response.data && response.data.staff) {
+        const staff = response.data.staff;
+        
+        // Determine the staff type from the response
+        if (staff.loginType === 'kitchen' || staff.role === 'chef') {
+          onLogin('kitchen');
+        } else if (staff.loginType === 'delivery' || staff.role === 'delivery') {
+          onLogin('delivery');
+        } else {
+          setError('Your staff role is not authorized for this application.');
+        }
+      } else {
+        setError('Login failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      
+      setError(
+        error.response?.data?.message || 
+        'Unable to connect to the server. Please try again or use demo credentials.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -36,16 +81,17 @@ const Login = ({ onLogin }) => {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="staffId">Staff ID</label>
+            <label htmlFor="email">Email Address</label>
             <div className="input-with-icon">
-              <i className="fas fa-user"></i>
+              <i className="fas fa-envelope"></i>
               <input
-                type="text"
-                id="staffId"
-                value={staffId}
-                onChange={(e) => setStaffId(e.target.value)}
-                placeholder="Enter your staff ID"
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -61,13 +107,20 @@ const Login = ({ onLogin }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                disabled={isLoading}
               />
             </div>
           </div>
           
-          <button type="submit" className="login-button">
-            <span>Login</span>
-            <i className="fas fa-arrow-right"></i>
+          <button type="submit" className="login-button" disabled={isLoading}>
+            {isLoading ? (
+              <span>Logging in... <i className="fas fa-circle-notch fa-spin"></i></span>
+            ) : (
+              <>
+                <span>Login</span>
+                <i className="fas fa-arrow-right"></i>
+              </>
+            )}
           </button>
         </form>
         
@@ -81,12 +134,12 @@ const Login = ({ onLogin }) => {
           <div className="credential-box">
             <div className="credential-item">
               <strong>Kitchen Staff:</strong> 
-              <span>ID: K1001</span>
+              <span>Email: kitchen@restaurant.com</span>
               <span>Password: kitchen123</span>
             </div>
             <div className="credential-item">
               <strong>Delivery Staff:</strong> 
-              <span>ID: D2001</span>
+              <span>Email: delivery@restaurant.com</span>
               <span>Password: delivery123</span>
             </div>
           </div>
