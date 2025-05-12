@@ -30,6 +30,7 @@ function OrdersManagement() {
   const [filters, setFilters] = useState({
     status: '',
     orderType: '',
+    kitchenStatus: '', // Add kitchen status filter
     searchTerm: '',
     searchOption: 'all', // Add search option for dropdown
     page: 1,
@@ -74,6 +75,7 @@ function OrdersManagement() {
         limit: filters.limit, 
         status: filters.status,
         orderType: filters.orderType,
+        kitchenStatus: filters.kitchenStatus, // Add kitchen status to log
         startDate: startDate,
         endDate: endDate
       });
@@ -83,6 +85,7 @@ function OrdersManagement() {
         limit: filters.limit,
         status: filters.status,
         orderType: filters.orderType,
+        kitchenStatus: filters.kitchenStatus, // Add kitchen status to API call
         startDate: startDate,
         endDate: endDate
       });
@@ -144,6 +147,11 @@ function OrdersManagement() {
       setFilteredOrders(orders);
     }
   }, [filters.searchTerm, orders]);
+
+  // Effect to trigger fetch when kitchen status changes
+  useEffect(() => {
+    fetchOrders();
+  }, [filters.kitchenStatus]);
 
   const applySearchFilter = () => {
     const searchLower = filters.searchTerm.toLowerCase();
@@ -218,6 +226,7 @@ function OrdersManagement() {
     setFilters({
       status: '',
       orderType: '',
+      kitchenStatus: '', // Reset kitchen status filter
       searchTerm: '',
       searchOption: 'all', // Reset to 'all'
       page: 1,
@@ -291,6 +300,8 @@ function OrdersManagement() {
       case 'In Progress': return 'status-processing';
       case 'Pending': return 'status-pending';
       case 'Cancelled': return 'status-cancelled';
+      case 'Preparing': return 'status-preparing';
+      case 'Ready': return 'status-ready';
       default: return '';
     }
   };
@@ -379,6 +390,18 @@ function OrdersManagement() {
               <option value="Delivery">Delivery</option>
             </select>
             
+            <select 
+              name="kitchenStatus" 
+              value={filters.kitchenStatus}
+              onChange={handleFilterChange}
+            >
+              <option value="">All Kitchen Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Preparing">Preparing</option>
+              <option value="Ready">Ready</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            
             <button className="reset-filters-btn" onClick={resetFilters}>
               Reset Filters
             </button>
@@ -397,6 +420,7 @@ function OrdersManagement() {
                   <th>Type</th>
                   <th>Date</th>
                   <th>Total</th>
+                  <th>Kitchen Status</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -410,6 +434,11 @@ function OrdersManagement() {
                       <td>{order.order_type}</td>
                       <td>{formatDate(order.created_at)}</td>
                       <td>Rs. {parseFloat(order.total_amount).toFixed(2)}</td>
+                      <td>
+                        <span className={`status-badge ${getStatusClass(order.kitchen_status)}`}>
+                          {order.kitchen_status || 'Pending'}
+                        </span>
+                      </td>
                       <td>
                         <span className={`status-badge ${getStatusClass(order.order_status)}`}>
                           {order.order_status}
@@ -440,7 +469,7 @@ function OrdersManagement() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="7" className="no-orders">
+                    <td colSpan="8" className="no-orders">
                       No orders match the current filters
                     </td>
                   </tr>
@@ -488,6 +517,11 @@ function OrdersManagement() {
                   <div className="order-info-group">
                     <h3>Order Information</h3>
                     <p><strong>Status:</strong> {selectedOrder.order_status}</p>
+                    <p><strong>Kitchen Status:</strong> 
+                      <span className={`status-badge ${getStatusClass(selectedOrder.kitchen_status)}`}> 
+                        {selectedOrder.kitchen_status || 'Pending'}
+                      </span>
+                    </p>
                     <p><strong>Type:</strong> {selectedOrder.order_type}</p>
                     <p><strong>Date:</strong> {formatDate(selectedOrder.created_at)}</p>
                     <p><strong>Last Updated:</strong> {formatDate(selectedOrder.updated_at)}</p>

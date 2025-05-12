@@ -1,19 +1,26 @@
 import { API_URL } from '../config/constants';
 
 // Get all orders with optional filters
-export const getAllOrders = async (params = {}) => {
+export const getAllOrders = async (filters = {}) => {
   try {
-    // Build query string from params
-    const queryParams = new URLSearchParams();
-    if (params.page) queryParams.append('page', params.page);
-    if (params.limit) queryParams.append('limit', params.limit);
-    if (params.status) queryParams.append('status', params.status);
-    if (params.orderType) queryParams.append('type', params.orderType);
-    if (params.startDate) queryParams.append('startDate', params.startDate);
-    if (params.endDate) queryParams.append('endDate', params.endDate);
+    const {
+      page = 1,
+      limit = 10,
+      status = '',
+      orderType = '',
+      kitchenStatus = '', // Add kitchen status
+      startDate = '',
+      endDate = ''
+    } = filters;
+
+    let url = `${API_URL}/api/admin/orders?page=${page}&limit=${limit}`;
     
-    const queryString = queryParams.toString();
-    
+    if (status) url += `&status=${status}`;
+    if (orderType) url += `&type=${orderType}`;
+    if (kitchenStatus) url += `&kitchenStatus=${kitchenStatus}`; // Add to URL if present
+    if (startDate) url += `&startDate=${startDate}`;
+    if (endDate) url += `&endDate=${endDate}`;
+
     // Get admin token from localStorage
     const token = localStorage.getItem('adminToken');
     
@@ -22,7 +29,7 @@ export const getAllOrders = async (params = {}) => {
       return { orders: [], pagination: { page: 1, limit: params.limit || 10, total: 0, pages: 1 } };
     }
     
-    const response = await fetch(`${API_URL}/api/admin/orders${queryString ? `?${queryString}` : ''}`, {
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

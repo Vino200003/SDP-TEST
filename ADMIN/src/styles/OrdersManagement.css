@@ -265,6 +265,17 @@
   color: #dc3545;
 }
 
+/* Kitchen status badges */
+.status-preparing {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-ready {
+  background-color: #4caf50;
+  color: white;
+}
+
 .order-actions {
   display: flex;
   gap: 0.5rem;

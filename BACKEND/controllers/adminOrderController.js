@@ -8,6 +8,7 @@ exports.getAllOrders = async (req, res) => {
       limit = 10, 
       status, 
       type,
+      kitchenStatus, // Add kitchen status
       startDate, 
       endDate
     } = req.query;
@@ -26,6 +27,11 @@ exports.getAllOrders = async (req, res) => {
     if (type) {
       whereClause += whereClause ? ' AND order_type = ?' : 'WHERE order_type = ?';
       queryParams.push(type);
+    }
+    
+    if (kitchenStatus) {
+      whereClause += whereClause ? ' AND kitchen_status = ?' : 'WHERE kitchen_status = ?';
+      queryParams.push(kitchenStatus);
     }
     
     if (startDate) {
