@@ -489,6 +489,39 @@
   color: #dc3545;
 }
 
+/* Kitchen status badges */
+.status-preparing {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-ready {
+  background-color: #4caf50;
+  color: white;
+}
+
+.waiting-label {
+  font-size: 0.85rem;
+  color: #777;
+  font-style: italic;
+  display: block;
+  margin-top: 5px;
+}
+
+.waiting-message {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.waiting-message i {
+  margin-right: 5px;
+}
+
 /* Orders Grid */
 .orders-grid {
   display: grid;

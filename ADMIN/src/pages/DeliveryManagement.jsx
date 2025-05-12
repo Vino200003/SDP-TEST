@@ -45,6 +45,7 @@ function DeliveryManagement() {
     orders: {
       search: '',
       status: '',
+      kitchenStatus: '',
       date: ''
     }
   });
@@ -178,20 +179,33 @@ function DeliveryManagement() {
     }
   };
 
-  // Fetch delivery orders (using the real API now)
+  // Fetch delivery orders (using the real API to include kitchen_status)
   const fetchDeliveryOrders = async () => {
     setIsLoading(true);
     try {
       const data = await deliveryService.getDeliveryOrders();
-      setDeliveryOrders(data);
-      setFilteredOrders(data);
+      
+      // Make sure kitchen_status is defined for all orders
+      const ordersWithKitchenStatus = data.map(order => ({
+        ...order,
+        kitchen_status: order.kitchen_status || 'Pending'
+      }));
+      
+      setDeliveryOrders(ordersWithKitchenStatus);
+      setFilteredOrders(ordersWithKitchenStatus);
       setIsLoading(false);
     } catch (error) {
       console.error('Error fetching delivery orders:', error);
       notify('Failed to load delivery orders data. Using mock data instead.', 'error');
-      // Fallback to mock data in case of error
-      setDeliveryOrders(mockDeliveryOrders);
-      setFilteredOrders(mockDeliveryOrders);
+      
+      // Add kitchen_status to the mock data if needed
+      const mockWithKitchenStatus = mockDeliveryOrders.map(order => ({
+        ...order,
+        kitchen_status: order.kitchen_status || 'Pending'
+      }));
+      
+      setDeliveryOrders(mockWithKitchenStatus);
+      setFilteredOrders(mockWithKitchenStatus);
       setIsLoading(false);
     }
   };
@@ -219,20 +233,24 @@ function DeliveryManagement() {
 
   // Apply filters to orders list
   const applyOrdersFilters = () => {
-    const { search, status, date } = filters.orders;
+    const { search, status, kitchenStatus, date } = filters.orders;
     let filtered = [...deliveryOrders];
 
     if (search) {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(order => 
-        order.customer_name.toLowerCase().includes(searchLower) ||
-        order.delivery_address.toLowerCase().includes(searchLower) ||
+        (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) ||
+        (order.delivery_address && order.delivery_address.toLowerCase().includes(searchLower)) ||
         order.order_id.toString().includes(search)
       );
     }
 
     if (status) {
       filtered = filtered.filter(order => order.delivery_status === status);
+    }
+    
+    if (kitchenStatus) {
+      filtered = filtered.filter(order => order.kitchen_status === kitchenStatus);
     }
 
     if (date) {
@@ -262,7 +280,7 @@ function DeliveryManagement() {
       ...filters,
       [tab]: tab === 'personnel' 
         ? { search: '', status: '' }
-        : { search: '', status: '', date: '' }
+        : { search: '', status: '', kitchenStatus: '', date: '' }
     });
   };
 
@@ -387,12 +405,20 @@ function DeliveryManagement() {
       case 'on_the_way': return 'status-on-the-way';
       case 'delivered': return 'status-delivered';
       case 'cancelled': return 'status-cancelled';
+      case 'Pending': return 'status-pending';
+      case 'Preparing': return 'status-preparing';
+      case 'Ready': return 'status-ready';
+      case 'Cancelled': return 'status-cancelled';
       default: return '';
     }
   };
 
   // Format status text for display
   const formatStatus = (status) => {
+    // Don't transform kitchen_status values since they're already capitalized in the database
+    if (['Pending', 'Preparing', 'Ready', 'Cancelled'].includes(status)) {
+      return status;
+    }
     return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
 
@@ -470,11 +496,23 @@ function DeliveryManagement() {
                   onChange={(e) => handleFilterChange('orders', 'status', e.target.value)}
                   className="status-select"
                 >
-                  <option value="">All Statuses</option>
+                  <option value="">All Delivery Statuses</option>
                   <option value="pending">Pending</option>
                   <option value="on_the_way">On The Way</option>
                   <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>
+                </select>
+                
+                <select
+                  value={filters.orders.kitchenStatus}
+                  onChange={(e) => handleFilterChange('orders', 'kitchenStatus', e.target.value)}
+                  className="status-select"
+                >
+                  <option value="">All Kitchen Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Preparing">Preparing</option>
+                  <option value="Ready">Ready</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
                 
                 <input 
@@ -510,6 +548,7 @@ function DeliveryManagement() {
                         <th>Contact</th>
                         <th>Order Time</th>
                         <th>Total</th>
+                        <th>Kitchen Status</th>
                         <th>Status</th>
                         <th>Assigned To</th>
                         <th>Actions</th>
@@ -524,6 +563,11 @@ function DeliveryManagement() {
                           <td>{order.contact_number}</td>
                           <td>{formatDate(order.order_time)}</td>
                           <td>Rs. {order.order_total.toFixed(2)}</td>
+                          <td>
+                            <span className={`status-badge ${getStatusClass(order.kitchen_status)}`}>
+                              {order.kitchen_status}
+                            </span>
+                          </td>
                           <td>
                             <span className={`status-badge ${getStatusClass(order.delivery_status)}`}>
                               {formatStatus(order.delivery_status)}
@@ -548,7 +592,7 @@ function DeliveryManagement() {
                                 <i className="fas fa-eye"></i> View
                               </button>
                               
-                              {order.delivery_status === 'pending' && (
+                              {order.delivery_status === 'pending' && order.kitchen_status === 'Ready' && (
                                 <button 
                                   className="assign-btn"
                                   onClick={() => {
@@ -558,6 +602,10 @@ function DeliveryManagement() {
                                 >
                                   <i className="fas fa-user-plus"></i> Assign
                                 </button>
+                              )}
+                              
+                              {order.delivery_status === 'pending' && order.kitchen_status !== 'Ready' && (
+                                <span className="waiting-label">Waiting for kitchen</span>
                               )}
                               
                               {order.delivery_status === 'on_the_way' && (
@@ -989,7 +1037,8 @@ function DeliveryManagement() {
                 <div className="order-details-section">
                   <h3>Order Information</h3>
                   <p><strong>Order Time:</strong> {formatDate(selectedOrder.order_time)}</p>
-                  <p><strong>Status:</strong> <span className={`status-badge ${getStatusClass(selectedOrder.delivery_status)}`}>{formatStatus(selectedOrder.delivery_status)}</span></p>
+                  <p><strong>Kitchen Status:</strong> <span className={`status-badge ${getStatusClass(selectedOrder.kitchen_status)}`}>{selectedOrder.kitchen_status}</span></p>
+                  <p><strong>Delivery Status:</strong> <span className={`status-badge ${getStatusClass(selectedOrder.delivery_status)}`}>{formatStatus(selectedOrder.delivery_status)}</span></p>
                   {selectedOrder.assigned_to && (
                     <p><strong>Assigned To:</strong> {getPersonName(selectedOrder.assigned_to)}</p>
                   )}
@@ -1035,7 +1084,7 @@ function DeliveryManagement() {
                 </div>
                 
                 <div className="order-details-actions">
-                  {selectedOrder.delivery_status === 'pending' && (
+                  {selectedOrder.delivery_status === 'pending' && selectedOrder.kitchen_status === 'Ready' && (
                     <button 
                       className="assign-btn"
                       onClick={() => {
@@ -1045,6 +1094,12 @@ function DeliveryManagement() {
                     >
                       Assign to Delivery Person
                     </button>
+                  )}
+                  
+                  {selectedOrder.delivery_status === 'pending' && selectedOrder.kitchen_status !== 'Ready' && (
+                    <div className="waiting-message">
+                      <i className="fas fa-clock"></i> Waiting for kitchen to complete the order
+                    </div>
                   )}
                   
                   {selectedOrder.delivery_status === 'on_the_way' && (

@@ -93,6 +93,7 @@ exports.getDeliveryOrders = (req, res) => {
             contact_number: order.phone_number || 'No contact number',
             order_total: parseFloat(order.total_amount),
             order_time: order.created_at,
+            kitchen_status: order.kitchen_status || 'Pending', // Include kitchen_status
             delivery_status: deliveryStatus,
             assigned_to: order.delivery_person_id,
             staff_name: staffName,
