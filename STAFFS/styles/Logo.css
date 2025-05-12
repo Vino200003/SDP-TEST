@@ -1,0 +1,27 @@
+.logo-container {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.logo {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333;
+  margin: 0;
+}
+
+.logo-image {
+  height: 60px;
+  width: auto;
+  margin-bottom: 0.5rem;
+}
+
+.logo span {
+  color: #ff6b35;
+}
+
+.logo-subtitle {
+  font-size: 1rem;
+  color: #666;
+  margin: 0.25rem 0 0;
+}

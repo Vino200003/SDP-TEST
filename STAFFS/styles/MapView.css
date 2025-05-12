@@ -1,0 +1,157 @@
+.map-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #eee;
+}
+
+.map-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.map-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.map-button {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: #f5f5f5;
+  border: none;
+  color: #555;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.map-button:hover {
+  background-color: #e0e0e0;
+}
+
+.map-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #f9f9f9;
+  color: #777;
+  font-size: 1.1rem;
+  padding: 2rem;
+}
+
+.map-placeholder i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #2196f3;
+}
+
+.map-destination {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: rgba(33, 150, 243, 0.1);
+  border-radius: 4px;
+  color: #2196f3;
+  font-weight: 500;
+}
+
+.no-selection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #aaa;
+  background-color: #f9f9f9;
+  font-size: 1.1rem;
+  padding: 2rem;
+}
+
+.no-selection i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.3;
+}
+
+.delivery-details {
+  padding: 1.25rem;
+  background-color: white;
+  border-top: 1px solid #eee;
+}
+
+.detail-row {
+  display: flex;
+  margin-bottom: 0.75rem;
+}
+
+.detail-label {
+  width: 100px;
+  font-weight: 500;
+  color: #666;
+}
+
+.detail-value {
+  flex: 1;
+  color: #333;
+}
+
+.detail-value a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.detail-value a:hover {
+  text-decoration: underline;
+}
+
+.delivery-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.action-button {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-button.call {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.action-button.call:hover {
+  background-color: #e0e0e0;
+}
+
+.action-button.navigate {
+  background-color: #2196f3;
+  color: white;
+}
+
+.action-button.navigate:hover {
+  background-color: #1976d2;
+}
