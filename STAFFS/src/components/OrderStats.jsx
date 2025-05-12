@@ -19,7 +19,7 @@ const OrderStats = ({ stats }) => {
           <i className="fas fa-bell"></i>
         </div>
         <div className="stat-content">
-          <p className="stat-title">New Orders</p>
+          <p className="stat-title">Pending</p>
           <h3 className="stat-value">{stats.new}</h3>
         </div>
       </div>

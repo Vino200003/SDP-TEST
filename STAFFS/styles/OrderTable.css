@@ -1,0 +1,272 @@
+.order-table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.order-table th {
+  background-color: #f5f5f5;
+  color: #333;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+.order-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.order-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.order-table td {
+  padding: 0.75rem 1rem;
+  vertical-align: middle;
+}
+
+.order-id {
+  font-weight: 600;
+  color: #333;
+}
+
+.order-type-cell {
+  display: flex;
+  align-items: center;
+}
+
+.order-type-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.dine-in {
+  background-color: #e3f2fd;
+  color: #2196f3;
+}
+
+.delivery {
+  background-color: #fff8e1;
+  color: #ff9800;
+}
+
+.pickup {
+  background-color: #e8f5e9;
+  color: #4caf50;
+}
+
+.takeaway {
+  background-color: #e8f5e9;
+  color: #4caf50;
+}
+
+.priority-column {
+  text-align: center;
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority-high {
+  background-color: #ffebee;
+  color: #f44336;
+}
+
+.priority-medium {
+  background-color: #fff8e1;
+  color: #ff9800;
+}
+
+.priority-low {
+  background-color: #e8f5e9;
+  color: #4caf50;
+}
+
+.status-column {
+  white-space: nowrap;
+}
+
+.status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.badge-new {
+  background-color: #ffebee;
+  color: #f44336;
+}
+
+.badge-pending {
+  background-color: #e0e0e0;
+  color: #616161;
+}
+
+.badge-preparing {
+  background-color: #fff8e1;
+  color: #ff9800;
+}
+
+.badge-ready {
+  background-color: #e8f5e9;
+  color: #4caf50;
+}
+
+.badge-cancelled {
+  background-color: #ffebee;
+  color: #f44336;
+}
+
+.badge-completed {
+  background-color: #f5f5f5;
+  color: #9e9e9e;
+}
+
+.actions-column {
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.update-status-select {
+  padding: 0.4rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.update-button {
+  padding: 0.4rem 0.8rem;
+  background-color: #ff6b35;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.update-button:hover {
+  background-color: #e85a2a;
+}
+
+/* Items table styling */
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.items-table th {
+  background-color: #f8f8f8;
+  padding: 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+}
+
+.items-table td {
+  padding: 0.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.items-table tr:first-child td {
+  border-top: none;
+}
+
+.item-quantity {
+  text-align: center;
+  font-weight: 600;
+  color: #555;
+}
+
+.item-notes {
+  color: #666;
+  font-style: italic;
+}
+
+.amount-cell {
+  text-align: right;
+  font-weight: 500;
+}
+
+.toggle-items-btn {
+  background: none;
+  border: none;
+  color: #2196f3;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0;
+}
+
+.toggle-items-btn:hover {
+  text-decoration: underline;
+}
+
+.items-wrapper {
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.instructions-text {
+  color: #666;
+  font-style: italic;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #ddd;
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .order-table-container {
+    overflow-x: auto;
+  }
+  
+  .order-table {
+    min-width: 800px;
+  }
+}
+
+@media (max-width: 768px) {
+  .order-table {
+    font-size: 0.8rem;
+    min-width: 700px;
+  }
+  
+  .order-table th, 
+  .order-table td {
+    padding: 0.6rem 0.5rem;
+  }
+  
+  .items-table {
+    font-size: 0.75rem;
+  }
+}
