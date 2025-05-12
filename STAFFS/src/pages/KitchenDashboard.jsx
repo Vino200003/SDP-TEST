@@ -1,122 +1,87 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../../styles/Dashboard.css';
 import '../../styles/KitchenDashboard.css';
 import '../../styles/OrderTable.css';
 import Header from '../components/Header';
 import OrderStats from '../components/OrderStats';
 
-const KitchenDashboard = ({ onLogout }) => {
-  const [orders, setOrders] = useState([
-    {
-      order_id: 1001,
-      user_id: 101,
-      order_type: 'Dine-in',
-      order_status: 'In Progress',
-      kitchen_status: 'Preparing',
-      table_no: 12,
-      sub_total: 34.50,
-      service_fee: 2.00,
-      total_amount: 36.50,
-      payment_type: 'card',
-      payment_status: 'paid',
-      special_instructions: 'Allergic to peanuts',
-      created_at: '2023-10-12T10:30:00',
-      items: [
-        { name: 'Chicken Burger', quantity: 2, notes: 'No pickles', price: 11.50 },
-        { name: 'French Fries', quantity: 1, notes: 'Extra salt', price: 4.50 },
-        { name: 'Coke', quantity: 2, notes: '', price: 3.50 }
-      ]
-    },
-    {
-      order_id: 1002,
-      user_id: 105,
-      order_type: 'Delivery',
-      order_status: 'In Progress',
-      kitchen_status: 'Pending',
-      delivery_status: 'Assigned',
-      estimated_delivery_time: '2023-10-12T11:15:00',
-      sub_total: 25.99,
-      service_fee: 1.50,
-      delivery_fee: 3.99,
-      total_amount: 31.48,
-      payment_type: 'card',
-      payment_status: 'paid',
-      delivery_address: '123 Main St, Cityville',
-      special_instructions: 'Ring the doorbell twice',
-      created_at: '2023-10-12T10:35:00',
-      items: [
-        { name: 'Margherita Pizza', quantity: 1, notes: 'Extra cheese', price: 18.99 },
-        { name: 'Garlic Bread', quantity: 1, notes: '', price: 7.00 }
-      ]
-    },
-    {
-      order_id: 1003,
-      user_id: 102,
-      order_type: 'Takeaway',
-      order_status: 'In Progress',
-      kitchen_status: 'Preparing',
-      sub_total: 28.50,
-      service_fee: 0.00,
-      total_amount: 28.50,
-      payment_type: 'cash',
-      payment_status: 'unpaid',
-      special_instructions: 'Pack items separately',
-      created_at: '2023-10-12T10:25:00',
-      items: [
-        { name: 'Vegetable Pasta', quantity: 1, notes: 'No mushrooms', price: 16.50 },
-        { name: 'Tiramisu', quantity: 1, notes: '', price: 12.00 }
-      ]
-    },
-    {
-      order_id: 1004,
-      user_id: 103,
-      order_type: 'Dine-in',
-      order_status: 'In Progress',
-      kitchen_status: 'Preparing',
-      table_no: 8,
-      sub_total: 52.50,
-      service_fee: 5.25,
-      total_amount: 57.75,
-      payment_type: 'card',
-      payment_status: 'paid',
-      special_instructions: 'Birthday celebration, please add a candle to the dessert',
-      created_at: '2023-10-12T10:15:00',
-      items: [
-        { name: 'Steak', quantity: 1, notes: 'Medium rare', price: 28.50 },
-        { name: 'Mashed Potatoes', quantity: 1, notes: '', price: 8.00 },
-        { name: 'Caesar Salad', quantity: 1, notes: 'Dressing on the side', price: 9.50 },
-        { name: 'Chocolate Cake', quantity: 1, notes: 'Add birthday candle', price: 6.50 }
-      ]
-    },
-    {
-      order_id: 1005,
-      user_id: 104,
-      order_type: 'Takeaway',
-      order_status: 'In Progress',
-      kitchen_status: 'Ready',
-      sub_total: 23.00,
-      service_fee: 0.00,
-      total_amount: 23.00,
-      payment_type: 'cash',
-      payment_status: 'unpaid',
-      created_at: '2023-10-12T10:05:00',
-      items: [
-        { name: 'Chicken Wrap', quantity: 2, notes: '', price: 9.50 },
-        { name: 'Onion Rings', quantity: 1, notes: '', price: 4.00 }
-      ]
-    }
-  ]);
+// Hardcoded API URL for development - replace with environment variable in production
+const API_URL = 'http://localhost:5000/api';
 
+const KitchenDashboard = ({ onLogout }) => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [expandedItems, setExpandedItems] = useState({});
   const [sortOrder, setSortOrder] = useState('newest');
   const [searchTerm, setSearchTerm] = useState('');
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
 
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(orders.map(order => 
-      order.order_id === orderId ? { ...order, kitchen_status: newStatus } : order
-    ));
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/kitchen/orders${activeFilter !== 'All' ? `?status=${activeFilter}` : ''}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setOrders(data);
+      setLastRefreshed(new Date());
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError('Failed to load orders. Please try again later.');
+      // Initialize with empty array in case of error
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch and set up refresh interval
+  useEffect(() => {
+    fetchOrders();
+    
+    // Set up auto-refresh every 30 seconds
+    const intervalId = setInterval(fetchOrders, 30000);
+    
+    // Clean up interval when component unmounts
+    return () => clearInterval(intervalId);
+  }, [activeFilter]);
+
+  // Handle manual refresh
+  const handleRefresh = () => {
+    fetchOrders();
+  };
+
+  // Update order status
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const response = await fetch(`${API_URL}/kitchen/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ kitchen_status: newStatus }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
+      
+      // Update local state to reflect the change
+      setOrders(orders.map(order => 
+        order.order_id === orderId ? { ...order, kitchen_status: newStatus } : order
+      ));
+    } catch (err) {
+      console.error('Error updating order status:', err);
+      setError('Failed to update order status. Please try again.');
+    }
   };
 
   const toggleItems = (orderId) => {
@@ -129,12 +94,7 @@ const KitchenDashboard = ({ onLogout }) => {
   const getFilteredOrders = () => {
     let result = [...orders];
     
-    // Apply status filter
-    if (activeFilter !== 'All') {
-      result = result.filter(order => order.kitchen_status === activeFilter);
-    }
-    
-    // Apply type filter
+    // Apply type filter only, since status filter is applied at API level
     if (typeFilter !== 'All') {
       result = result.filter(order => order.order_type === typeFilter);
     }
@@ -144,7 +104,7 @@ const KitchenDashboard = ({ onLogout }) => {
       const term = searchTerm.toLowerCase();
       result = result.filter(order => 
         order.order_id.toString().includes(term) || 
-        order.items.some(item => item.name.toLowerCase().includes(term))
+        (order.items && order.items.some(item => (item.name || '').toLowerCase().includes(term)))
       );
     }
     
@@ -160,6 +120,7 @@ const KitchenDashboard = ({ onLogout }) => {
 
   const filteredOrders = getFilteredOrders();
 
+  // Calculate stats based on current orders
   const stats = {
     total: orders.length,
     new: orders.filter(order => order.kitchen_status === 'Pending').length,
@@ -169,6 +130,7 @@ const KitchenDashboard = ({ onLogout }) => {
   };
 
   const formatDateTime = (timestamp) => {
+    if (!timestamp) return 'Unknown';
     return new Date(timestamp).toLocaleString([], { 
       month: 'short', 
       day: 'numeric', 
@@ -178,6 +140,8 @@ const KitchenDashboard = ({ onLogout }) => {
   };
   
   const getTimeElapsed = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    
     const orderTime = new Date(timestamp);
     const now = new Date();
     const diffInMinutes = Math.floor((now - orderTime) / (1000 * 60));
@@ -216,6 +180,19 @@ const KitchenDashboard = ({ onLogout }) => {
         <div className="orders-controls">
           <div className="orders-header">
             <h2>Orders Queue</h2>
+            
+            <div className="header-actions">
+              <button 
+                className="refresh-btn" 
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                <i className="fas fa-sync-alt"></i> Refresh
+              </button>
+              <div className="last-refreshed">
+                Last updated: {formatDateTime(lastRefreshed)}
+              </div>
+            </div>
             
             <div className="advanced-filters">
               <div className="search-container">
@@ -341,7 +318,20 @@ const KitchenDashboard = ({ onLogout }) => {
           <div className="order-type-section">
             <h3 className="section-title">Orders Queue</h3>
             <div className="orders-grid">
-              {filteredOrders.length > 0 ? (
+              {loading ? (
+                <div className="loading-indicator">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <p>Loading orders...</p>
+                </div>
+              ) : error ? (
+                <div className="error-message">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  <p>{error}</p>
+                  <button onClick={fetchOrders} className="retry-btn">
+                    Retry
+                  </button>
+                </div>
+              ) : filteredOrders.length > 0 ? (
                 <div className="order-table-container">
                   <table className="order-table">
                     <thead>
@@ -362,8 +352,8 @@ const KitchenDashboard = ({ onLogout }) => {
                             <td className="order-id">#{order.order_id}</td>
                             <td>
                               <div className="order-type-cell">
-                                <span className={`order-type-badge ${order.order_type.toLowerCase()}`}>
-                                  {order.order_type}
+                                <span className={`order-type-badge ${(order.order_type || '').toLowerCase()}`}>
+                                  {order.order_type || 'Unknown'}
                                 </span>
                               </div>
                             </td>
@@ -371,22 +361,23 @@ const KitchenDashboard = ({ onLogout }) => {
                               {getTimeElapsed(order.created_at)}
                             </td>
                             <td>
-                              {order.order_type === 'Dine-in' && `Table ${order.table_no}`}
+                              {order.order_type === 'Dine-in' && `Table ${order.table_no || 'N/A'}`}
                               {order.order_type === 'Delivery' && 'Delivery'}
                               {order.order_type === 'Takeaway' && 'Pickup'}
+                              {!order.order_type && 'Unknown'}
                             </td>
                             <td className="status-column">
                               <span className={`status-badge ${getStatusBadgeClass(order.kitchen_status)}`}>
-                                {order.kitchen_status}
+                                {order.kitchen_status || 'Unknown'}
                               </span>
                             </td>
                             <td className="amount-cell">
-                              ${order.total_amount.toFixed(2)}
+                              ${parseFloat(order.total_amount || 0).toFixed(2)}
                             </td>
                             <td className="actions-column">
                               <select 
                                 className="update-status-select"
-                                value={order.kitchen_status}
+                                value={order.kitchen_status || ''}
                                 onChange={(e) => updateOrderStatus(order.order_id, e.target.value)}
                               >
                                 <option value="Pending">Pending</option>
@@ -398,7 +389,7 @@ const KitchenDashboard = ({ onLogout }) => {
                                 className="update-button"
                                 onClick={() => {
                                   const statusOptions = ['Pending', 'Preparing', 'Ready'];
-                                  const currentIndex = statusOptions.indexOf(order.kitchen_status);
+                                  const currentIndex = statusOptions.indexOf(order.kitchen_status || '');
                                   if (currentIndex < statusOptions.length - 1) {
                                     updateOrderStatus(order.order_id, statusOptions[currentIndex + 1]);
                                   }
@@ -415,7 +406,7 @@ const KitchenDashboard = ({ onLogout }) => {
                                 onClick={() => toggleItems(order.order_id)}
                               >
                                 <i className={`fas fa-${expandedItems[order.order_id] ? 'chevron-down' : 'chevron-right'}`}></i>
-                                {expandedItems[order.order_id] ? 'Hide Items' : 'Show Items'} ({order.items.length})
+                                {expandedItems[order.order_id] ? 'Hide Items' : 'Show Items'} ({(order.items || []).length})
                               </button>
                               
                               {expandedItems[order.order_id] && (
@@ -430,12 +421,12 @@ const KitchenDashboard = ({ onLogout }) => {
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {order.items.map((item, idx) => (
+                                      {(order.items || []).map((item, idx) => (
                                         <tr key={idx}>
-                                          <td className="item-quantity">{item.quantity}x</td>
-                                          <td>{item.name}</td>
+                                          <td className="item-quantity">{item.quantity || 1}x</td>
+                                          <td>{item.name || 'Unknown item'}</td>
                                           <td className="item-notes">{item.notes || '-'}</td>
-                                          <td className="amount-cell">${(item.price * item.quantity).toFixed(2)}</td>
+                                          <td className="amount-cell">${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
                                         </tr>
                                       ))}
                                     </tbody>

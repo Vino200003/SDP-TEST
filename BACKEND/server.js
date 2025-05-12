@@ -11,6 +11,7 @@ const adminRoutes = require('./routes/adminRoutes'); // Make sure this is added
 const deliveryZoneRoutes = require('./routes/deliveryZoneRoutes'); // Import the delivery zone routes
 const deliveryRoutes = require('./routes/deliveryRoutes'); // Import the delivery routes
 const staffRoutes = require('./routes/staffRoutes'); // Ensure this is imported
+const kitchenRoutes = require('./routes/kitchenRoutes'); // Import the kitchen routes
 
 // Use routes
 app.use('/api/users', userRoutes);
@@ -20,6 +21,7 @@ app.use('/api/admin', adminRoutes); // Make sure this is added
 app.use('/api/delivery-zones', deliveryZoneRoutes); // Add the delivery zone routes to the express app
 app.use('/api/delivery', deliveryRoutes); // Add the delivery routes to the express app
 app.use('/api/staff', staffRoutes); // Make sure this is registered
+app.use('/api/kitchen', kitchenRoutes); // Kitchen routes
 
 console.log('User routes initialized');
 console.log('Menu routes initialized');
