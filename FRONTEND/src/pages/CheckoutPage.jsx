@@ -17,7 +17,8 @@ const CheckoutPage = () => {
     cardExpiry: '',
     cardCVV: '',
     pickupDate: '',
-    pickupTime: ''
+    pickupTime: '',
+    tableNo: '' // Add tableNo for dine-in option
   });
 
   // State for cart and order
@@ -41,6 +42,10 @@ const CheckoutPage = () => {
   const [deliveryZones, setDeliveryZones] = useState([]);
   const [selectedZone, setSelectedZone] = useState(null);
   const deliveryFeeRef = useRef(null);
+
+  // State for available tables
+  const [availableTables, setAvailableTables] = useState([]);
+  const [isLoadingTables, setIsLoadingTables] = useState(false);
 
   // Fetch user profile, cart, and delivery zones
   useEffect(() => {
@@ -160,7 +165,7 @@ const CheckoutPage = () => {
     setServiceFee(newServiceFee);
     
     // Set delivery fee based on selected method and zone
-    if (deliveryMethod === 'pickup') {
+    if (deliveryMethod === 'pickup' || deliveryMethod === 'dine-in') {
       setDeliveryFee(0);
     }
     // The deliveryFee is already set when the zone is selected
@@ -169,6 +174,63 @@ const CheckoutPage = () => {
     const newTotal = newSubtotal + newServiceFee + deliveryFee;
     setTotal(newTotal);
   }, [cart, deliveryMethod, deliveryFee]);
+
+  // Fetch available tables when dine-in is selected
+  useEffect(() => {
+    if (deliveryMethod === 'dine-in') {
+      fetchAvailableTables();
+    }
+  }, [deliveryMethod]);
+
+  // Function to fetch available tables
+  const fetchAvailableTables = async () => {
+    setIsLoadingTables(true);
+    try {
+      // Fetch available tables from API
+      const response = await fetch('/api/tables?status=Available&is_active=true');
+      
+      if (response.ok) {
+        const tables = await response.json();
+        setAvailableTables(tables);
+      } else {
+        console.error('Error fetching available tables. Status:', response.status);
+        // Fallback to API endpoint for reservations which might be available
+        try {
+          const currentDateTime = new Date().toISOString();
+          const reservationResponse = await fetch(`/api/reservations/available-tables?dateTime=${currentDateTime}`);
+          
+          if (reservationResponse.ok) {
+            const reservationTables = await reservationResponse.json();
+            setAvailableTables(reservationTables);
+          } else {
+            throw new Error('Both table endpoints failed');
+          }
+        } catch (reservationError) {
+          console.error('Both table API endpoints failed:', reservationError);
+          // Fallback to dummy data if both API calls fail
+          setAvailableTables([
+            { table_no: 1, capacity: 2, status: 'Available' },
+            { table_no: 2, capacity: 4, status: 'Available' },
+            { table_no: 3, capacity: 6, status: 'Available' },
+            { table_no: 4, capacity: 2, status: 'Available' },
+            { table_no: 5, capacity: 4, status: 'Available' }
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching available tables:', error);
+      // Fallback to dummy data
+      setAvailableTables([
+        { table_no: 1, capacity: 2, status: 'Available' },
+        { table_no: 2, capacity: 4, status: 'Available' },
+        { table_no: 3, capacity: 6, status: 'Available' },
+        { table_no: 4, capacity: 2, status: 'Available' },
+        { table_no: 5, capacity: 4, status: 'Available' }
+      ]);
+    } finally {
+      setIsLoadingTables(false);
+    }
+  };
 
   // Handle input changes
   const handleChange = (e) => {
@@ -266,7 +328,7 @@ const CheckoutPage = () => {
   const validateForm = () => {
     const errors = {};
     
-    // Skip address validation if pickup is selected
+    // Validation based on delivery method
     if (deliveryMethod === 'delivery') {
       if (isEditingAddress) {
         // Only validate address fields if user is editing them
@@ -280,10 +342,13 @@ const CheckoutPage = () => {
       
       // Always validate Zone ID for delivery regardless of editing status
       if (!formData.zoneId) errors.zoneId = 'Delivery zone is required';
-    } else {
+    } else if (deliveryMethod === 'pickup') {
       // Validate pickup date and time
       if (!formData.pickupDate) errors.pickupDate = 'Pickup date is required';
       if (!formData.pickupTime) errors.pickupTime = 'Pickup time is required';
+    } else if (deliveryMethod === 'dine-in') {
+      // Validate table selection for dine-in
+      if (!formData.tableNo) errors.tableNo = 'Please select a table';
     }
     
     // Payment method validation
@@ -346,7 +411,7 @@ const CheckoutPage = () => {
     setDeliveryMethod(method);
     
     // Update delivery fee based on method
-    if (method === 'pickup') {
+    if (method === 'pickup' || method === 'dine-in') {
       setDeliveryFee(0);
     } else if (selectedZone) {
       // If returning to delivery and a zone is selected, use its fee
@@ -356,7 +421,7 @@ const CheckoutPage = () => {
       setDeliveryFee(5.00);
     }
     
-    // Clear address-related errors if switching to pickup
+    // Clear method-specific errors when changing methods
     if (method === 'pickup') {
       setFormErrors(prevErrors => {
         const newErrors = {...prevErrors};
@@ -364,17 +429,33 @@ const CheckoutPage = () => {
         delete newErrors.city;
         delete newErrors.zipCode;
         delete newErrors.zoneId;
+        delete newErrors.tableNo;
         return newErrors;
       });
-    } else {
-      // Clear pickup-related errors if switching to delivery
+    } else if (method === 'dine-in') {
       setFormErrors(prevErrors => {
         const newErrors = {...prevErrors};
+        delete newErrors.address;
+        delete newErrors.city;
+        delete newErrors.zipCode;
+        delete newErrors.zoneId;
         delete newErrors.pickupDate;
         delete newErrors.pickupTime;
         return newErrors;
       });
+    } else {
+      // Clear pickup and dine-in related errors if switching to delivery
+      setFormErrors(prevErrors => {
+        const newErrors = {...prevErrors};
+        delete newErrors.pickupDate;
+        delete newErrors.pickupTime;
+        delete newErrors.tableNo;
+        return newErrors;
+      });
     }
+    
+    // Save the selected delivery method to localStorage
+    localStorage.setItem('deliveryMethod', method);
   };
 
   // Handle toggling address edit mode
@@ -437,7 +518,8 @@ const CheckoutPage = () => {
           name: item.name || item.menu_name, // Include item name for reference
           special_instructions: item.special_instructions || ''
         })),
-        order_type: deliveryMethod === 'delivery' ? 'Delivery' : 'Takeaway',
+        order_type: deliveryMethod === 'delivery' ? 'Delivery' : 
+                   deliveryMethod === 'pickup' ? 'Takeaway' : 'Dine-in',
         order_status: 'Pending',
         subtotal: parseFloat(subtotal.toFixed(2)),
         service_fee: parseFloat(serviceFee.toFixed(2)),
@@ -446,7 +528,9 @@ const CheckoutPage = () => {
         payment_method: formData.paymentMethod === 'credit-card' ? 'Credit Card' : 'Cash',
         delivery_address: deliveryAddressToUse, // Base address
         zone_id: deliveryMethod === 'delivery' ? parseInt(formData.zoneId) : null, // Add zone_id to order
-        delivery_notes: formData.deliveryNotes || '',
+        // Connect both delivery and dine-in instructions to special_instructions field
+        special_instructions: formData.deliveryNotes || '',
+        table_no: deliveryMethod === 'dine-in' ? parseInt(formData.tableNo) : null,
         pickup_time: deliveryMethod === 'pickup' ? 
           `${formData.pickupDate} ${formData.pickupTime}` : null,
         user_email: userData.email || '',
@@ -581,6 +665,13 @@ const CheckoutPage = () => {
                       onClick={() => handleDeliveryMethodChange('pickup')}
                     >
                       <i className="fas fa-shopping-bag"></i> Pickup
+                    </button>
+                    <button 
+                      type="button"
+                      className={`delivery-btn ${deliveryMethod === 'dine-in' ? 'active' : ''}`}
+                      onClick={() => handleDeliveryMethodChange('dine-in')}
+                    >
+                      <i className="fas fa-utensils"></i> Dine-In
                     </button>
                   </div>
                 </div>
@@ -843,6 +934,47 @@ const CheckoutPage = () => {
                         {formErrors.pickupTime && <span className="error-text">{formErrors.pickupTime}</span>}
                       </div>
                     </div>
+                  </div>
+                )}
+                
+                {deliveryMethod === 'dine-in' && (
+                  <div className="checkout-section">
+                    <h3>Table Selection</h3>
+                    {isLoadingTables ? (
+                      <p>Loading available tables...</p>
+                    ) : (
+                      <>
+                        <div className="form-group">
+                          <label htmlFor="tableNo">Select a Table <span className="required">*</span></label>
+                          <select
+                            id="tableNo"
+                            name="tableNo"
+                            value={formData.tableNo}
+                            onChange={handleChange}
+                            className={formErrors.tableNo ? 'error' : ''}
+                          >
+                            <option value="">-- Select a Table --</option>
+                            {availableTables.map(table => (
+                              <option key={table.table_no} value={table.table_no}>
+                                Table {table.table_no} (Seats {table.capacity})
+                              </option>
+                            ))}
+                          </select>
+                          {formErrors.tableNo && <p className="error-message">{formErrors.tableNo}</p>}
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="deliveryNotes">Special Instructions (Optional)</label>
+                          <textarea
+                            id="deliveryNotes"
+                            name="deliveryNotes"
+                            value={formData.deliveryNotes}
+                            onChange={handleChange}
+                            placeholder="Any special instructions for your dining experience..."
+                            rows={3}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                 

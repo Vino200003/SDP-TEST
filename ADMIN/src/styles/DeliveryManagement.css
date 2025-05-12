@@ -1148,6 +1148,40 @@
   color: #495057;
 }
 
+/* Special Instructions styling */
+.special-instructions {
+  background-color: #fff8e1;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.special-instructions h3 {
+  color: #e65100;
+}
+
+.instructions-content {
+  background-color: white;
+  padding: 0.75rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.instructions-content p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: #212529;
+}
+
+/* Highlight important delivery instructions */
+.special-instructions .instructions-content p strong,
+.special-instructions .instructions-content p b {
+  color: #e65100;
+}
+
 /* Responsive Design */
 @media (max-width: 992px) {
   .personnel-cards,

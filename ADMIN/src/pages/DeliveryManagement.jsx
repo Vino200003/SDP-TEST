@@ -976,6 +976,16 @@ function DeliveryManagement() {
                   <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
                 </div>
                 
+                {/* Add Special Instructions section */}
+                {selectedOrder.special_instructions && (
+                  <div className="order-details-section special-instructions">
+                    <h3>Delivery Instructions</h3>
+                    <div className="instructions-content">
+                      <p>{selectedOrder.special_instructions}</p>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="order-details-section">
                   <h3>Order Information</h3>
                   <p><strong>Order Time:</strong> {formatDate(selectedOrder.order_time)}</p>

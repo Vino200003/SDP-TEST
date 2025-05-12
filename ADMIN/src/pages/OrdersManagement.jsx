@@ -504,6 +504,37 @@ function OrdersManagement() {
                   </div>
                 </div>
                 
+                {/* Special Instructions Section */}
+                {selectedOrder.special_instructions && (
+                  <div className="special-instructions-section">
+                    <h3>{selectedOrder.order_type === 'Delivery' ? 'Delivery Instructions' : 
+                         selectedOrder.order_type === 'Dine-in' ? 'Special Requests' : 
+                         'Special Instructions'}</h3>
+                    <div className="instructions-box">
+                      <p>{selectedOrder.special_instructions}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Display table number for Dine-in orders */}
+                {selectedOrder.order_type === 'Dine-in' && selectedOrder.table_no && (
+                  <div className="table-info-section">
+                    <h3>Table Information</h3>
+                    <p><strong>Table Number:</strong> {selectedOrder.table_no}</p>
+                  </div>
+                )}
+                
+                {/* Delivery Address for Delivery orders */}
+                {selectedOrder.order_type === 'Delivery' && selectedOrder.delivery_address && (
+                  <div className="delivery-info-section">
+                    <h3>Delivery Information</h3>
+                    <p><strong>Address:</strong> {selectedOrder.delivery_address}</p>
+                    {selectedOrder.zone_id && <p><strong>Zone ID:</strong> {selectedOrder.zone_id}</p>}
+                    {selectedOrder.delivery_fee > 0 && 
+                      <p><strong>Delivery Fee:</strong> Rs. {parseFloat(selectedOrder.delivery_fee).toFixed(2)}</p>}
+                  </div>
+                )}
+                
                 <div className="order-items-section">
                   <h3>Ordered Items</h3>
                   <table className="order-items-table">
@@ -528,6 +559,22 @@ function OrdersManagement() {
                       ))}
                     </tbody>
                     <tfoot>
+                      <tr>
+                        <td colSpan="4" className="summary-label">Subtotal</td>
+                        <td>Rs. {parseFloat(selectedOrder.sub_total || 0).toFixed(2)}</td>
+                      </tr>
+                      {selectedOrder.service_fee > 0 && (
+                        <tr>
+                          <td colSpan="4" className="summary-label">Service Fee</td>
+                          <td>Rs. {parseFloat(selectedOrder.service_fee).toFixed(2)}</td>
+                        </tr>
+                      )}
+                      {selectedOrder.delivery_fee > 0 && (
+                        <tr>
+                          <td colSpan="4" className="summary-label">Delivery Fee</td>
+                          <td>Rs. {parseFloat(selectedOrder.delivery_fee).toFixed(2)}</td>
+                        </tr>
+                      )}
                       <tr className="order-total">
                         <td colSpan="4" className="summary-label">Total</td>
                         <td>Rs. {parseFloat(selectedOrder.total_amount).toFixed(2)}</td>
@@ -536,17 +583,16 @@ function OrdersManagement() {
                   </table>
                 </div>
                 
-                {selectedOrder.order_type === 'Delivery' && (
-                  <div className="delivery-section">
-                    <h3>Delivery Information</h3>
-                    {selectedOrder.delivery_person_id && (
-                      <p><strong>Delivery Person ID:</strong> {selectedOrder.delivery_person_id}</p>
-                    )}
-                    {selectedOrder.delivery_address && (
-                      <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
-                    )}
+                <div className="payment-section">
+                  <h3>Payment Information</h3>
+                  <div className="payment-info">
+                    <p><strong>Method:</strong> {selectedOrder.payment_type ? 
+                      selectedOrder.payment_type.charAt(0).toUpperCase() + selectedOrder.payment_type.slice(1) : 'N/A'}</p>
+                    <p><strong>Status:</strong> {selectedOrder.payment_status ? 
+                      selectedOrder.payment_status.charAt(0).toUpperCase() + selectedOrder.payment_status.slice(1) : 'N/A'}</p>
+                    {selectedOrder.paid_at && <p><strong>Paid At:</strong> {formatDate(selectedOrder.paid_at)}</p>}
                   </div>
-                )}
+                </div>
                 
                 <div className="order-actions-footer">
                   <select 

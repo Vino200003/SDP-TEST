@@ -536,6 +536,81 @@
   background-color: #dae0e5;
 }
 
+/* Special Instructions Section */
+.special-instructions-section {
+  margin-bottom: 2rem;
+  background-color: #fff7e6;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  border-left: 4px solid #ffc107;
+}
+
+.special-instructions-section h3 {
+  font-size: 1.1rem;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #495057;
+}
+
+.instructions-box {
+  background-color: white;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.instructions-box p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #212529;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Table Information Section */
+.table-info-section {
+  margin-bottom: 2rem;
+  background-color: #e6f0ff;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  border-left: 4px solid #4361ee;
+}
+
+.table-info-section h3 {
+  font-size: 1.1rem;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #495057;
+}
+
+.table-info-section p {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  color: #212529;
+}
+
+/* Delivery Information Section */
+.delivery-info-section {
+  margin-bottom: 2rem;
+  background-color: #e6f7ed;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  border-left: 4px solid #28a745;
+}
+
+.delivery-info-section h3 {
+  font-size: 1.1rem;
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #495057;
+}
+
+.delivery-info-section p {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  color: #212529;
+}
+
 /* Make responsive for smaller screens */
 @media (max-width: 768px) {
   .filter-options {
