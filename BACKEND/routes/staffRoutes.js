@@ -17,7 +17,8 @@ router.get('/test', (req, res) => {
 // For development purposes, we'll make these routes public temporarily
 // Later you should restore the adminAuthMiddleware.protectAdmin middleware
 router.get('/', staffController.getAllStaff);
-router.get('/:id', staffController.getAllStaff);
+router.get('/delivery', staffController.getDeliveryStaff);
+router.get('/:id', staffController.getStaffById);
 router.post('/', staffController.createStaff);
 router.put('/:id', staffController.updateStaff);
 router.delete('/:id', staffController.deleteStaff);

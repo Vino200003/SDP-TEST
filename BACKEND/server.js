@@ -9,6 +9,7 @@ const menuRoutes = require('./routes/menuRoutes');
 const reservationRoutes = require('./routes/reservationRoutes');
 const adminRoutes = require('./routes/adminRoutes'); // Make sure this is added
 const deliveryZoneRoutes = require('./routes/deliveryZoneRoutes'); // Import the delivery zone routes
+const deliveryRoutes = require('./routes/deliveryRoutes'); // Import the delivery routes
 
 // Use routes
 app.use('/api/users', userRoutes);
@@ -16,12 +17,14 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/admin', adminRoutes); // Make sure this is added
 app.use('/api/delivery-zones', deliveryZoneRoutes); // Add the delivery zone routes to the express app
+app.use('/api/delivery', deliveryRoutes); // Add the delivery routes to the express app
 
 console.log('User routes initialized');
 console.log('Menu routes initialized');
 console.log('Reservation routes initialized');
 console.log('Admin routes initialized'); // Add this log
 console.log('Delivery zone routes initialized'); // Add this log
+console.log('Delivery routes initialized'); // Add this log
 
 // Add more detailed logging for server startup
 app.listen(port, () => {

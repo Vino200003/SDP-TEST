@@ -390,3 +390,32 @@ exports.loginStaff = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+/**
+ * Get all delivery staff
+ */
+exports.getDeliveryStaff = (req, res) => {
+  try {
+    const query = `
+      SELECT staff_id, first_name, last_name, nic, email, phone_number, role, active, created_at, updated_at 
+      FROM staff 
+      WHERE role = 'delivery' AND active = true
+      ORDER BY staff_id ASC
+    `;
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error fetching delivery staff:', err);
+        return res.status(500).json({ 
+          message: 'Error fetching delivery staff', 
+          error: err.message 
+        });
+      }
+      
+      res.json(results);
+    });
+  } catch (error) {
+    console.error('Server error in getDeliveryStaff:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

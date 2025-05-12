@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
 import '../styles/DeliveryManagement.css';
-// Import service to be created later
-// import * as deliveryService from '../services/deliveryService';
+// Import the delivery service
+import * as deliveryService from '../services/deliveryService';
 
 function DeliveryManagement() {
   // State for delivery personnel
@@ -160,38 +160,38 @@ function DeliveryManagement() {
     applyOrdersFilters();
   }, [deliveryOrders, filters.orders]);
 
-  // Fetch delivery personnel (mock for now)
+  // Fetch delivery personnel (now using the real API)
   const fetchDeliveryPersonnel = async () => {
     setIsLoading(true);
     try {
-      // const data = await deliveryService.getAllDeliveryPersonnel();
-      // Simulate API call with mock data
-      setTimeout(() => {
-        setDeliveryPersonnel(mockDeliveryPersonnel);
-        setFilteredPersonnel(mockDeliveryPersonnel);
-        setIsLoading(false);
-      }, 500);
+      const data = await deliveryService.getAllDeliveryPersonnel();
+      setDeliveryPersonnel(data);
+      setFilteredPersonnel(data);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching delivery personnel:', error);
-      notify('Failed to load delivery personnel data', 'error');
+      notify('Failed to load delivery personnel data. Using mock data instead.', 'error');
+      // Fallback to mock data in case of error
+      setDeliveryPersonnel(mockDeliveryPersonnel);
+      setFilteredPersonnel(mockDeliveryPersonnel);
       setIsLoading(false);
     }
   };
 
-  // Fetch delivery orders (mock for now)
+  // Fetch delivery orders (using the real API now)
   const fetchDeliveryOrders = async () => {
     setIsLoading(true);
     try {
-      // const data = await deliveryService.getDeliveryOrders();
-      // Simulate API call with mock data
-      setTimeout(() => {
-        setDeliveryOrders(mockDeliveryOrders);
-        setFilteredOrders(mockDeliveryOrders);
-        setIsLoading(false);
-      }, 500);
+      const data = await deliveryService.getDeliveryOrders();
+      setDeliveryOrders(data);
+      setFilteredOrders(data);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching delivery orders:', error);
-      notify('Failed to load delivery orders data', 'error');
+      notify('Failed to load delivery orders data. Using mock data instead.', 'error');
+      // Fallback to mock data in case of error
+      setDeliveryOrders(mockDeliveryOrders);
+      setFilteredOrders(mockDeliveryOrders);
       setIsLoading(false);
     }
   };
@@ -266,37 +266,10 @@ function DeliveryManagement() {
     });
   };
 
-  // Add new delivery person
+  // Handle add person (not needed since we're using staff table, but keep for future use)
   const handleAddPerson = () => {
-    // Validate form
-    if (!newPerson.name || !newPerson.contact_number) {
-      notify('Name and contact number are required', 'error');
-      return;
-    }
-
-    // In a real app, this would be an API call
-    // await deliveryService.addDeliveryPerson(newPerson);
-    
-    const personWithId = {
-      ...newPerson,
-      id: deliveryPersonnel.length + 1,
-      completed_deliveries: 0,
-      avg_rating: 0,
-      joined_date: new Date().toISOString().split('T')[0]
-    };
-
-    setDeliveryPersonnel([...deliveryPersonnel, personWithId]);
+    notify('Staff members should be added from the Staff Management page', 'info');
     setIsAddPersonModalOpen(false);
-    setNewPerson({
-      name: '',
-      contact_number: '',
-      email: '',
-      vehicle_type: 'motorcycle',
-      license_number: '',
-      status: 'available'
-    });
-    
-    notify('Delivery person added successfully', 'success');
   };
 
   // Update delivery person
@@ -346,81 +319,48 @@ function DeliveryManagement() {
     }
   };
 
-  // Assign order to delivery person
-  const handleAssignOrder = () => {
+  // Assign order to delivery person (updated to use the API)
+  const handleAssignOrder = async () => {
     if (!selectedOrder || !selectedPerson) return;
 
-    // In a real app, this would be an API call
-    // await deliveryService.assignDeliveryOrder(selectedOrder.order_id, selectedPerson.id);
-    
-    const updatedOrders = deliveryOrders.map(order =>
-      order.order_id === selectedOrder.order_id
-        ? { 
-            ...order, 
-            assigned_to: selectedPerson.id,
-            delivery_status: 'on_the_way',
-            estimated_delivery: new Date(Date.now() + 30 * 60000).toISOString() // 30 mins from now
-          }
-        : order
-    );
-
-    const updatedPersonnel = deliveryPersonnel.map(person =>
-      person.id === selectedPerson.id
-        ? { ...person, status: 'on_delivery' }
-        : person
-    );
-
-    setDeliveryOrders(updatedOrders);
-    setDeliveryPersonnel(updatedPersonnel);
-    setIsAssignOrderModalOpen(false);
-    setSelectedOrder(null);
-    setSelectedPerson(null);
-    
-    notify('Order assigned successfully', 'success');
+    try {
+      setIsLoading(true);
+      await deliveryService.assignDeliveryOrder(selectedOrder.order_id, selectedPerson.id);
+      
+      // Refresh data after assignment
+      await fetchDeliveryOrders();
+      await fetchDeliveryPersonnel();
+      
+      setIsAssignOrderModalOpen(false);
+      setSelectedOrder(null);
+      setSelectedPerson(null);
+      
+      notify('Order assigned successfully', 'success');
+    } catch (error) {
+      console.error('Error assigning order:', error);
+      notify(`Failed to assign order: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Update order status
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
-    // In a real app, this would be an API call
-    // await deliveryService.updateOrderStatus(orderId, newStatus);
-    
-    const updatedOrders = deliveryOrders.map(order => {
-      if (order.order_id !== orderId) return order;
+  // Update order status (updated to use the API)
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      setIsLoading(true);
+      await deliveryService.updateOrderStatus(orderId, newStatus);
       
-      const updatedOrder = { ...order, delivery_status: newStatus };
+      // Refresh data after status update
+      await fetchDeliveryOrders();
+      await fetchDeliveryPersonnel(); // Staff status might change too
       
-      if (newStatus === 'delivered') {
-        updatedOrder.delivery_time = new Date().toISOString();
-      } else if (newStatus === 'cancelled') {
-        // If the order was assigned to someone, update their status
-        if (order.assigned_to) {
-          const deliveryPerson = deliveryPersonnel.find(p => p.id === order.assigned_to);
-          if (deliveryPerson && deliveryPerson.status === 'on_delivery') {
-            // Check if this was their only delivery
-            const otherActiveDeliveries = deliveryOrders.some(o => 
-              o.order_id !== orderId && 
-              o.assigned_to === order.assigned_to && 
-              o.delivery_status === 'on_the_way'
-            );
-            
-            if (!otherActiveDeliveries) {
-              // Update delivery person status
-              const updatedPersonnel = deliveryPersonnel.map(person =>
-                person.id === order.assigned_to
-                  ? { ...person, status: 'available' }
-                  : person
-              );
-              setDeliveryPersonnel(updatedPersonnel);
-            }
-          }
-        }
-      }
-      
-      return updatedOrder;
-    });
-
-    setDeliveryOrders(updatedOrders);
-    notify(`Order status updated to ${newStatus.replace('_', ' ')}`, 'success');
+      notify(`Order status updated to ${newStatus.replace('_', ' ')}`, 'success');
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      notify(`Failed to update order status: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Format date for display
@@ -683,7 +623,9 @@ function DeliveryManagement() {
                 </button>
               </div>
               
-              {/* Remove the add button here */}
+              <div className="add-personnel-info">
+                <p>Delivery staff are managed in the Staff Management page</p>
+              </div>
             </div>
             
             {isLoading ? (
