@@ -349,28 +349,6 @@ exports.loginStaff = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     
-    // Demo credentials for testing - always accept these even without database
-    if ((email === 'kitchen@restaurant.com' && password === 'kitchen123') || 
-        (email === 'delivery@restaurant.com' && password === 'delivery123')) {
-      
-      // Determine role and login type based on email
-      const role = email.startsWith('kitchen') ? 'chef' : 'delivery';
-      const loginType = role === 'chef' ? 'kitchen' : 'delivery';
-      
-      console.log(`Demo login successful for ${email} as ${role}`);
-      
-      return res.json({
-        message: 'Login successful',
-        staff: {
-          email,
-          role,
-          loginType,
-          first_name: role === 'chef' ? 'Kitchen' : 'Delivery',
-          last_name: 'Staff'
-        }
-      });
-    }
-    
     // Check if database connection is available
     if (!db || !db.query) {
       console.error('Database connection not available');
@@ -403,7 +381,7 @@ exports.loginStaff = async (req, res) => {
       
       // Check password
       try {
-        // For testing purposes, allow plaintext comparison if bcrypt fails
+        // Try to compare with bcrypt
         let isMatch = false;
         
         try {

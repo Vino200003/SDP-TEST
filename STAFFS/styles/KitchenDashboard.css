@@ -176,6 +176,193 @@
   text-decoration: underline;
 }
 
+/* Dashboard Layout and Common Elements */
+.dashboard-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding: 0 0.5rem;
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 15px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-right: 20px;
+  gap: 6px;
+}
+
+.refresh-button:hover {
+  background-color: #3d8b40;
+}
+
+.refresh-button:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
+}
+
+.refresh-success-message {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #4caf50;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  animation: fadeInOut 2s ease;
+}
+
+.orders-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.orders-header h2 {
+  color: #333;
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.orders-header h2 i {
+  color: #4caf50;
+}
+
+.order-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter-button {
+  padding: 0.5rem 1rem;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  color: #555;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-button:hover {
+  background-color: #e0e0e0;
+}
+
+.filter-button.active {
+  background-color: #2196f3;
+  color: white;
+  border-color: #1976d2;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-20px); }
+  15% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+
+/* Enhanced Kitchen Status Badges */
+.status-column {
+  text-align: center;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  min-width: 130px;
+  text-align: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  margin: 3px 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.status-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.status-icon {
+  margin-right: 8px;
+  font-size: 1rem;
+}
+
+.badge-pending {
+  background-color: #FF8C00;
+  background-image: linear-gradient(135deg, #FF8C00, #FFA726);
+}
+
+.badge-preparing {
+  background-color: #1E88E5;
+  background-image: linear-gradient(135deg, #1E88E5, #42A5F5);
+}
+
+.badge-ready {
+  background-color: #2E7D32;
+  background-image: linear-gradient(135deg, #2E7D32, #43A047);
+}
+
+.badge-cancelled {
+  background-color: #D32F2F;
+  background-image: linear-gradient(135deg, #D32F2F, #E57373);
+}
+
+/* Update the order table to enhance the overall look */
+.order-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.order-table th {
+  background-color: #f5f5f5;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: #444;
+  border-bottom: 2px solid #eee;
+}
+
+.order-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid #eee;
+}
+
+.order-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
 @media (max-width: 768px) {
   .order-types-container {
     grid-template-columns: 1fr;
@@ -197,3 +384,4 @@
     flex-grow: 1;
   }
 }
+

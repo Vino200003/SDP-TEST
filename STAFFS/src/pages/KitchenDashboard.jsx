@@ -4,6 +4,8 @@ import '../../styles/KitchenDashboard.css';
 import '../../styles/OrderTable.css';
 import Header from '../components/Header';
 import OrderStats from '../components/OrderStats';
+import ProfilePage from '../components/ProfilePage';
+import axios from 'axios';
 
 // Hardcoded API URL for development - replace with environment variable in production
 const API_URL = 'http://localhost:5000/api';
@@ -18,6 +20,68 @@ const KitchenDashboard = ({ onLogout }) => {
   const [sortOrder, setSortOrder] = useState('newest');
   const [searchTerm, setSearchTerm] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [showProfile, setShowProfile] = useState(false);
+  const [staffData, setStaffData] = useState({
+    name: "",
+    role: "Kitchen Staff",
+    email: "",
+    phone_number: "",
+    nic: "",
+    joinDate: "",
+  });
+
+  // Update document title
+  useEffect(() => {
+    document.title = "Kitchen Dashboard";
+    return () => {
+      document.title = "Restaurant Staff Portal"; // Reset on unmount
+    };
+  }, []);
+
+  // Check authorization and fetch staff data
+  useEffect(() => {
+    const checkAuthAndFetchData = async () => {
+      try {
+        const staffId = localStorage.getItem('staffId');
+        const staffRole = localStorage.getItem('staffRole');
+        
+        if (!staffId || staffId === 'null') {
+          console.log('No staff ID found in localStorage');
+          onLogout(); // Redirect to login if no ID
+          return;
+        }
+        
+        // Ensure this is a kitchen staff
+        if (staffRole !== 'chef') {
+          console.warn('Non-kitchen staff attempting to access kitchen dashboard');
+          alert('You are not authorized to access this dashboard');
+          onLogout(); // Redirect to login
+          return;
+        }
+        
+        const response = await axios.get(`${API_URL}/staff/profile/${staffId}`);
+        if (response.data) {
+          setStaffData({
+            name: `${response.data.first_name} ${response.data.last_name}`,
+            role: 'Kitchen Staff',
+            email: response.data.email,
+            phone_number: response.data.phone_number,
+            nic: response.data.nic,
+            joinDate: response.data.joinDate,
+            // Store the full data for profile page
+            ...response.data
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching staff data:', error);
+        if (error.response && error.response.status === 401) {
+          onLogout(); // Unauthorized, redirect to login
+        }
+      }
+    };
+    
+    checkAuthAndFetchData();
+  }, [onLogout]);
 
   // Fetch orders from API
   const fetchOrders = async () => {
@@ -164,56 +228,59 @@ const KitchenDashboard = ({ onLogout }) => {
       default: return '';
     }
   };
+  
+ 
+
+  // Handle profile button click in header
+  const handleProfileClick = () => {
+    console.log('Profile button clicked, sending staffData:', staffData);
+    setShowProfile(true);
+  };
+  
+  // Return to dashboard from profile page
+  const handleBackToDashboard = () => {
+    setShowProfile(false);
+  };
+  
+  // If showing profile page, render the profile component with kitchen staff data
+  if (showProfile) {
+    return <ProfilePage 
+      staffData={staffData} 
+      dashboardType="kitchen"
+      onBack={handleBackToDashboard} 
+      onLogout={onLogout} 
+    />;
+  }
 
   return (
     <div className="dashboard-container">
       <Header 
         title="Kitchen Dashboard" 
-        staffName="Michael Chen" 
-        staffRole="Kitchen Staff" 
+        staffName={staffData.name} 
+        staffRole={staffData.role} 
         onLogout={onLogout}
+        onProfileClick={handleProfileClick}
       />
       
       <div className="dashboard-content">
         <OrderStats stats={stats} />
         
-        <div className="orders-controls">
-          <div className="orders-header">
-            <h2>Orders Queue</h2>
-            
-            <div className="header-actions">
-              <button 
-                className="refresh-btn" 
-                onClick={handleRefresh}
-                disabled={loading}
-              >
-                <i className="fas fa-sync-alt"></i> Refresh
-              </button>
-              <div className="last-refreshed">
-                Last updated: {formatDateTime(lastRefreshed)}
-              </div>
-            </div>
-            
-            <div className="advanced-filters">
-              <div className="search-container">
-                <input
-                  type="text"
-                  placeholder="Search order id or item..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+        <div className="dashboard-main-content">
+          <div className="orders-section">
+            <div className="orders-header">
+              <h2><i className="fas fa-utensils"></i> Incoming Orders</h2>
+              <div className="dashboard-actions">
                 <button 
-                  className="search-btn"
-                  onClick={() => setSearchTerm('')}
-                  title="Clear search"
+                  className="refresh-button" 
+                  onClick={handleRefresh}
+                  disabled={loading}
                 >
-                  {searchTerm ? <i className="fas fa-times"></i> : <i className="fas fa-search"></i>}
+                  {loading ? (
+                    <><i className="fas fa-spinner fa-spin"></i> Refreshing...</>
+                  ) : (
+                    <><i className="fas fa-sync-alt"></i> Refresh</>
+                  )}
                 </button>
-              </div>
-              
-              <div className="filter-group">
-                <label>Status:</label>
                 <div className="order-filters">
                   <button 
                     className={`filter-button ${activeFilter === 'All' ? 'active' : ''}`}
@@ -247,211 +314,169 @@ const KitchenDashboard = ({ onLogout }) => {
                   </button>
                 </div>
               </div>
-              
-              <div className="filter-group">
-                <label>Type:</label>
-                <div className="order-filters">
-                  <button 
-                    className={`filter-button ${typeFilter === 'All' ? 'active' : ''}`}
-                    onClick={() => setTypeFilter('All')}
-                  >
-                    All
-                  </button>
-                  <button 
-                    className={`filter-button ${typeFilter === 'Dine-in' ? 'active' : ''}`}
-                    onClick={() => setTypeFilter('Dine-in')}
-                  >
-                    Dine-in
-                  </button>
-                  <button 
-                    className={`filter-button ${typeFilter === 'Takeaway' ? 'active' : ''}`}
-                    onClick={() => setTypeFilter('Takeaway')}
-                  >
-                    Takeaway
-                  </button>
-                  <button 
-                    className={`filter-button ${typeFilter === 'Delivery' ? 'active' : ''}`}
-                    onClick={() => setTypeFilter('Delivery')}
-                  >
-                    Delivery
-                  </button>
-                </div>
-              </div>
-              
-              <div className="sort-control">
-                <label>Sort:</label>
-                <select 
-                  value={sortOrder} 
-                  onChange={(e) => setSortOrder(e.target.value)}
-                  className="sort-select"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                </select>
-              </div>
             </div>
-          </div>
-          
-          <div className="filter-summary">
-            <p>
-              Showing {filteredOrders.length} orders
-              {activeFilter !== 'All' && ` with status "${activeFilter}"`}
-              {typeFilter !== 'All' && ` of type "${typeFilter}"`}
-              {searchTerm && ` matching "${searchTerm}"`}
-            </p>
-            {(activeFilter !== 'All' || typeFilter !== 'All' || searchTerm) && (
-              <button 
-                className="clear-filters-btn"
-                onClick={() => {
-                  setActiveFilter('All');
-                  setTypeFilter('All');
-                  setSearchTerm('');
-                }}
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-        </div>
-        
-        <div className="order-types-container">
-          <div className="order-type-section">
-            <h3 className="section-title">Orders Queue</h3>
-            <div className="orders-grid">
-              {loading ? (
-                <div className="loading-indicator">
-                  <i className="fas fa-spinner fa-spin"></i>
-                  <p>Loading orders...</p>
-                </div>
-              ) : error ? (
-                <div className="error-message">
-                  <i className="fas fa-exclamation-triangle"></i>
-                  <p>{error}</p>
-                  <button onClick={fetchOrders} className="retry-btn">
-                    Retry
-                  </button>
-                </div>
-              ) : filteredOrders.length > 0 ? (
-                <div className="order-table-container">
-                  <table className="order-table">
-                    <thead>
-                      <tr>
-                        <th>Order ID</th>
-                        <th>Type</th>
-                        <th>Time</th>
-                        <th>Table/Delivery</th>
-                        <th>Kitchen Status</th>
-                        <th>Amount</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredOrders.map(order => (
-                        <React.Fragment key={order.order_id}>
+            
+            <div className="filter-summary">
+              <p>
+                Showing {filteredOrders.length} orders
+                {activeFilter !== 'All' && ` with status "${activeFilter}"`}
+                {typeFilter !== 'All' && ` of type "${typeFilter}"`}
+                {searchTerm && ` matching "${searchTerm}"`}
+              </p>
+              {(activeFilter !== 'All' || typeFilter !== 'All' || searchTerm) && (
+                <button 
+                  className="clear-filters-btn"
+                  onClick={() => {
+                    setActiveFilter('All');
+                    setTypeFilter('All');
+                    setSearchTerm('');
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+            
+            <div className="order-types-container">
+              <div className="order-type-section">
+                <h3 className="section-title">Orders Queue</h3>
+                <div className="orders-grid">
+                  {loading ? (
+                    <div className="loading-indicator">
+                      <i className="fas fa-spinner fa-spin"></i>
+                      <p>Loading orders...</p>
+                    </div>
+                  ) : error ? (
+                    <div className="error-message">
+                      <i className="fas fa-exclamation-triangle"></i>
+                      <p>{error}</p>
+                      <button onClick={fetchOrders} className="retry-btn">
+                        Retry
+                      </button>
+                    </div>
+                  ) : filteredOrders.length > 0 ? (
+                    <div className="order-table-container">
+                      <table className="order-table">
+                        <thead>
                           <tr>
-                            <td className="order-id">#{order.order_id}</td>
-                            <td>
-                              <div className="order-type-cell">
-                                <span className={`order-type-badge ${(order.order_type || '').toLowerCase()}`}>
-                                  {order.order_type || 'Unknown'}
-                                </span>
-                              </div>
-                            </td>
-                            <td title={formatDateTime(order.created_at)}>
-                              {getTimeElapsed(order.created_at)}
-                            </td>
-                            <td>
-                              {order.order_type === 'Dine-in' && `Table ${order.table_no || 'N/A'}`}
-                              {order.order_type === 'Delivery' && 'Delivery'}
-                              {order.order_type === 'Takeaway' && 'Pickup'}
-                              {!order.order_type && 'Unknown'}
-                            </td>
-                            <td className="status-column">
-                              <span className={`status-badge ${getStatusBadgeClass(order.kitchen_status)}`}>
-                                {order.kitchen_status || 'Unknown'}
-                              </span>
-                            </td>
-                            <td className="amount-cell">
-                              ${parseFloat(order.total_amount || 0).toFixed(2)}
-                            </td>
-                            <td className="actions-column">
-                              <select 
-                                className="update-status-select"
-                                value={order.kitchen_status || ''}
-                                onChange={(e) => updateOrderStatus(order.order_id, e.target.value)}
-                              >
-                                <option value="Pending">Pending</option>
-                                <option value="Preparing">Preparing</option>
-                                <option value="Ready">Ready</option>
-                                <option value="Cancelled">Cancelled</option>
-                              </select>
-                              <button 
-                                className="update-button"
-                                onClick={() => {
-                                  const statusOptions = ['Pending', 'Preparing', 'Ready'];
-                                  const currentIndex = statusOptions.indexOf(order.kitchen_status || '');
-                                  if (currentIndex < statusOptions.length - 1) {
-                                    updateOrderStatus(order.order_id, statusOptions[currentIndex + 1]);
-                                  }
-                                }}
-                              >
-                                Update
-                              </button>
-                            </td>
+                            <th style={{ textAlign: 'center' }}>Order ID</th>
+                            <th style={{ textAlign: 'center' }}>Type</th>
+                            <th style={{ textAlign: 'center' }}>Time</th>
+                            <th style={{ textAlign: 'center' }}>Table/Delivery</th>
+                            <th style={{ textAlign: 'center' }}>Kitchen Status</th>
+                            <th style={{ textAlign: 'center' }}>Amount</th>
+                            <th style={{ textAlign: 'center' }}>Actions</th>
                           </tr>
-                          <tr>
-                            <td colSpan="7">
-                              <button 
-                                className="toggle-items-btn" 
-                                onClick={() => toggleItems(order.order_id)}
-                              >
-                                <i className={`fas fa-${expandedItems[order.order_id] ? 'chevron-down' : 'chevron-right'}`}></i>
-                                {expandedItems[order.order_id] ? 'Hide Items' : 'Show Items'} ({(order.items || []).length})
-                              </button>
-                              
-                              {expandedItems[order.order_id] && (
-                                <div className="items-wrapper">
-                                  <table className="items-table">
-                                    <thead>
-                                      <tr>
-                                        <th width="10%">Qty</th>
-                                        <th width="40%">Item</th>
-                                        <th width="30%">Notes</th>
-                                        <th width="20%">Price</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {(order.items || []).map((item, idx) => (
-                                        <tr key={idx}>
-                                          <td className="item-quantity">{item.quantity || 1}x</td>
-                                          <td>{item.name || 'Unknown item'}</td>
-                                          <td className="item-notes">{item.notes || '-'}</td>
-                                          <td className="amount-cell">${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                        </thead>
+                        <tbody>
+                          {filteredOrders.map(order => (
+                            <React.Fragment key={order.order_id}>
+                              <tr>
+                                <td className="order-id">#{order.order_id}</td>
+                                <td>
+                                  <div className="order-type-cell">
+                                    <span className={`order-type-badge ${(order.order_type || '').toLowerCase()}`}>
+                                      {order.order_type || 'Unknown'}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td title={formatDateTime(order.created_at)}>
+                                  {getTimeElapsed(order.created_at)}
+                                </td>
+                                <td style={{ textAlign: 'center' }}>
+                                  {order.order_type === 'Dine-in' && `Table ${order.table_no || 'N/A'}`}
+                                  {order.order_type === 'Delivery' && 'Delivery'}
+                                  {order.order_type === 'Takeaway' && 'Pickup'}
+                                  {!order.order_type && 'Unknown'}
+                                </td>
+                                <td className="status-column" style={{ textAlign: 'center' }}>
+                                  <span className={`status-badge ${getStatusBadgeClass(order.kitchen_status)}`}>
+                                    {order.kitchen_status || 'Unknown'}
+                                  </span>
+                                </td>
+                                <td className="amount-cell" style={{ textAlign: 'center' }}>
+                                  LKR {parseFloat(order.total_amount || 0).toFixed(2)}
+                                </td>
+                                <td className="actions-column" style={{ textAlign: 'center' }}>
+                                  <select 
+                                    className="update-status-select"
+                                    value={order.kitchen_status || ''}
+                                    onChange={(e) => updateOrderStatus(order.order_id, e.target.value)}
+                                  >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Preparing">Preparing</option>
+                                    <option value="Ready">Ready</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                  </select>
+                                  <button 
+                                    className="update-button"
+                                    onClick={() => {
+                                      const statusOptions = ['Pending', 'Preparing', 'Ready'];
+                                      const currentIndex = statusOptions.indexOf(order.kitchen_status || '');
+                                      if (currentIndex < statusOptions.length - 1) {
+                                        updateOrderStatus(order.order_id, statusOptions[currentIndex + 1]);
+                                      }
+                                    }}
+                                  >
+                                    Update
+                                  </button>
+                                </td>
+                              </tr>
+                              <tr>
+                                <td colSpan="7">
+                                  <button 
+                                    className="toggle-items-btn" 
+                                    onClick={() => toggleItems(order.order_id)}
+                                  >
+                                    <i className={`fas fa-${expandedItems[order.order_id] ? 'chevron-down' : 'chevron-right'}`}></i>
+                                    {expandedItems[order.order_id] ? 'Hide Items' : 'Show Items'} ({(order.items || []).length})
+                                  </button>
                                   
-                                  {order.special_instructions && (
-                                    <div className="instructions-text">
-                                      <strong>Special Instructions:</strong> {order.special_instructions}
+                                  {expandedItems[order.order_id] && (
+                                    <div className="items-wrapper">
+                                      <table className="items-table">
+                                        <thead>
+                                          <tr>
+                                            <th width="10%">Qty</th>
+                                            <th width="40%">Item</th>
+                                            <th width="30%">Notes</th>
+                                            <th width="20%">Price</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(order.items || []).map((item, idx) => (
+                                            <tr key={idx}>
+                                              <td className="item-quantity">{item.quantity || 1}x</td>
+                                              <td>{item.name || 'Unknown item'}</td>
+                                              <td className="item-notes">{item.notes || '-'}</td>
+                                              <td className="amount-cell">LKR {((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                      
+                                      {order.special_instructions && (
+                                        <div className="instructions-text">
+                                          <strong>Special Instructions:</strong> {order.special_instructions}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        </React.Fragment>
-                      ))}
-                    </tbody>
-                  </table>
+                                </td>
+                              </tr>
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="no-orders-message">
+                      <i className="fas fa-utensils"></i>
+                      <p>No orders match your filter</p>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="no-orders-message">
-                  <i className="fas fa-utensils"></i>
-                  <p>No orders match your filter</p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

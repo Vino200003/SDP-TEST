@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../../styles/Login.css';
 import Logo from '../components/Logo';
 import axios from 'axios';
@@ -12,25 +12,18 @@ const Login = ({ onLogin }) => {
   // API URL - make sure this matches your backend
   const API_URL = 'http://localhost:5000/api';
 
+  // Update document title
+  useEffect(() => {
+    document.title = "Staff Login Portal";
+    return () => {
+      document.title = "Restaurant Staff Portal"; // Reset on unmount
+    };
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
-    // Demo credentials fallback
-    if ((email === 'kitchen@restaurant.com' && password === 'kitchen123') || 
-        (email === 'delivery@restaurant.com' && password === 'delivery123')) {
-      
-      const staffType = email.startsWith('kitchen') ? 'kitchen' : 'delivery';
-      console.log(`Using demo credentials for ${staffType} staff`);
-      
-      setTimeout(() => {
-        setIsLoading(false);
-        onLogin(staffType);
-      }, 500); // Small delay for better UX
-      
-      return;
-    }
     
     try {
       console.log(`Attempting to login with email: ${email}`);
@@ -47,23 +40,32 @@ const Login = ({ onLogin }) => {
       if (response.data && response.data.staff) {
         const staff = response.data.staff;
         
-        // Determine the staff type from the response
-        if (staff.loginType === 'kitchen' || staff.role === 'chef') {
+        // Store staff ID and info for profile page
+        localStorage.setItem('staffId', staff.staff_id || '');
+        localStorage.setItem('staffEmail', staff.email || email);
+        localStorage.setItem('staffRole', staff.role || '');
+        localStorage.setItem('staffName', `${staff.first_name || ''} ${staff.last_name || ''}`);
+        
+        // Determine the staff type from the response and route accordingly
+        if (staff.role === 'chef') {
           onLogin('kitchen');
-        } else if (staff.loginType === 'delivery' || staff.role === 'delivery') {
+        } else if (staff.role === 'delivery') {
           onLogin('delivery');
         } else {
           setError('Your staff role is not authorized for this application.');
+          setIsLoading(false);
+          return;
         }
       } else {
         setError('Login failed. Please try again.');
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Login error:', error);
       
       setError(
         error.response?.data?.message || 
-        'Unable to connect to the server. Please try again or use demo credentials.'
+        'Unable to connect to the server. Please try again.'
       );
     } finally {
       setIsLoading(false);

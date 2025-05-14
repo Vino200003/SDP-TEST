@@ -1,4 +1,8 @@
 // server.js
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const dotenv = require('dotenv');
 const app = require('./app');  // Import app.js for routing and middleware
 
 const port = process.env.PORT || 5000;
@@ -12,6 +16,12 @@ const deliveryZoneRoutes = require('./routes/deliveryZoneRoutes'); // Import the
 const deliveryRoutes = require('./routes/deliveryRoutes'); // Import the delivery routes
 const staffRoutes = require('./routes/staffRoutes'); // Ensure this is imported
 const kitchenRoutes = require('./routes/kitchenRoutes'); // Import the kitchen routes
+const staffProfileRoutes = require('./routes/staffProfileRoutes'); // Import staff profile routes
+
+// Apply middleware
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 
 // Use routes
 app.use('/api/users', userRoutes);
@@ -22,6 +32,7 @@ app.use('/api/delivery-zones', deliveryZoneRoutes); // Add the delivery zone rou
 app.use('/api/delivery', deliveryRoutes); // Add the delivery routes to the express app
 app.use('/api/staff', staffRoutes); // Make sure this is registered
 app.use('/api/kitchen', kitchenRoutes); // Kitchen routes
+app.use('/api/staff/profile', staffProfileRoutes); // Use staff profile routes
 
 console.log('User routes initialized');
 console.log('Menu routes initialized');
