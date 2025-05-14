@@ -240,7 +240,7 @@ function DeliveryManagement() {
       const searchLower = search.toLowerCase();
       filtered = filtered.filter(order => 
         (order.customer_name && order.customer_name.toLowerCase().includes(searchLower)) ||
-        (order.delivery_address && order.delivery_address.toLowerCase().includes(searchLower)) ||
+        (order.zone_name && order.zone_name.toLowerCase().includes(searchLower)) || // Change to search by zone_name
         order.order_id.toString().includes(search)
       );
     }
@@ -484,7 +484,7 @@ function DeliveryManagement() {
                   <i className="fas fa-search search-icon"></i>
                   <input 
                     type="text"
-                    placeholder="Search by customer or address..."
+                    placeholder="Search by customer or zone..."
                     value={filters.orders.search}
                     onChange={(e) => handleFilterChange('orders', 'search', e.target.value)}
                     className="search-input"
@@ -544,7 +544,7 @@ function DeliveryManagement() {
                       <tr>
                         <th>Order ID</th>
                         <th>Customer</th>
-                        <th>Address</th>
+                        <th>Delivery Zone</th> {/* Changed from "Address" to "Delivery Zone" */}
                         <th>Contact</th>
                         <th>Order Time</th>
                         <th>Total</th>
@@ -559,7 +559,9 @@ function DeliveryManagement() {
                         <tr key={order.order_id}>
                           <td>{order.order_id}</td>
                           <td>{order.customer_name}</td>
-                          <td className="address-cell">{order.delivery_address}</td>
+                          <td className="address-cell">
+                            {order.zone_name || 'Not specified'}
+                          </td>
                           <td>{order.contact_number}</td>
                           <td>{formatDate(order.order_time)}</td>
                           <td>Rs. {order.order_total.toFixed(2)}</td>
@@ -948,6 +950,7 @@ function DeliveryManagement() {
               <div className="modal-body">
                 <div className="order-summary">
                   <p><strong>Customer:</strong> {selectedOrder.customer_name}</p>
+                  <p><strong>Delivery Zone:</strong> {selectedOrder.zone_name || 'Not specified'}</p> {/* Add zone display */}
                   <p><strong>Address:</strong> {selectedOrder.delivery_address}</p>
                   <p><strong>Order Total:</strong> Rs. {selectedOrder.order_total.toFixed(2)}</p>
                 </div>
@@ -1021,6 +1024,7 @@ function DeliveryManagement() {
                   <h3>Customer Information</h3>
                   <p><strong>Name:</strong> {selectedOrder.customer_name}</p>
                   <p><strong>Contact:</strong> {selectedOrder.contact_number}</p>
+                  <p><strong>Delivery Zone:</strong> {selectedOrder.zone_name || 'Not specified'}</p> {/* Add zone here too */}
                   <p><strong>Delivery Address:</strong> {selectedOrder.delivery_address}</p>
                 </div>
                 

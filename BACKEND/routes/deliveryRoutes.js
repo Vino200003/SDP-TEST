@@ -12,6 +12,7 @@ router.get('/zones/:id/fee', deliveryZoneController.getDeliveryFeeByZoneId);
 
 // Delivery order routes - using new controller
 router.get('/orders', deliveryController.getDeliveryOrders);
+router.get('/staff/:staffId/deliveries', deliveryController.getStaffDeliveries);
 router.put('/orders/:orderId/assign/:deliveryPersonId', deliveryController.assignDeliveryPerson);
 router.put('/orders/:orderId/status', deliveryController.updateDeliveryStatus);
 

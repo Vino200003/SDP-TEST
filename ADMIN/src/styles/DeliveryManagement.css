@@ -186,7 +186,8 @@
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: #adb5bd;
+  color: #555;
+  z-index: 1;
 }
 
 .search-input {
@@ -196,6 +197,12 @@
   font-size: 0.95rem;
   width: 100%;
   transition: all 0.2s ease;
+  background-color: white;
+  color: #333;
+}
+
+.search-input::placeholder {
+  color: #777;
 }
 
 .search-input:focus {
@@ -211,6 +218,16 @@
   font-size: 0.95rem;
   min-width: 150px;
   transition: all 0.2s ease;
+  background-color: white;
+  color: #333;
+  font-weight: 500;
+}
+
+.status-select option {
+  background-color: white;
+  color: #333;
+  padding: 8px;
+  font-weight: normal;
 }
 
 .status-select:focus, .date-input:focus {
@@ -223,18 +240,23 @@
   padding: 0.6rem 0.75rem;
   border: 1px solid #dee2e6;
   background-color: white;
-  color: #6c757d;
+  color: #555;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  font-weight: 500;
 }
 
 .reset-filter-btn:hover {
   background-color: #f8f9fa;
-  color: #495057;
+  color: #333;
+}
+
+.reset-filter-btn i {
+  color: #ff9800;
 }
 
 .add-button {
@@ -259,6 +281,17 @@
 
 .add-button i {
   font-size: 1rem;
+}
+
+/* Add Personnel Info Section - Improved Visibility */
+.add-personnel-info {
+  color: #555;
+  font-weight: 500;
+  padding: 0.75rem 1.25rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #ff9800;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* Loading */
@@ -957,6 +990,8 @@
   border-radius: 6px;
   font-size: 0.95rem;
   transition: all 0.2s ease;
+  background-color: white;
+  color: #333;
 }
 
 .form-group input:focus,
@@ -970,6 +1005,12 @@
   margin-top: 0.25rem;
   font-size: 0.85rem;
   color: #6c757d;
+}
+
+.modal-body .form-group select option {
+  background-color: white;
+  color: #333;
+  padding: 8px;
 }
 
 .modal-actions {
@@ -1290,6 +1331,16 @@
   .step-icon {
     margin-bottom: 0;
   }
+  
+  .search-input,
+  .status-select,
+  .date-input,
+  .reset-filter-btn {
+    width: 100%;
+    max-width: 100%;
+    background-color: white;
+    color: #333;
+  }
 }
 
 @media (max-width: 576px) {
@@ -1312,5 +1363,25 @@
   
   .modal-actions button {
     width: 100%;
+  }
+}
+
+/* Override any dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .search-input,
+  .status-select,
+  .date-input {
+    background-color: white !important;
+    color: #333 !important;
+  }
+  
+  .status-select option {
+    background-color: white !important;
+    color: #333 !important;
+  }
+  
+  .reset-filter-btn {
+    background-color: white !important;
+    color: #555 !important;
   }
 }

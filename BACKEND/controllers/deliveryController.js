@@ -188,7 +188,7 @@ exports.updateDeliveryStatus = (req, res) => {
     } else if (status === 'cancelled') {
       dbStatus = 'Canceled';
     } else {
-      dbStatus = 'Pending';
+      dbStatus = 'Assigned';
     }
     
     // Additional fields to update based on status
@@ -233,3 +233,129 @@ exports.updateDeliveryStatus = (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+/**
+ * Get delivery orders assigned to a specific delivery staff
+ */
+exports.getStaffDeliveries = (req, res) => {
+  try {
+    const staffId = req.params.staffId;
+    
+    if (!staffId) {
+      return res.status(400).json({ message: 'Staff ID is required' });
+    }
+    
+    const query = `
+      SELECT o.*, 
+             u.first_name, u.last_name, u.email, u.phone_number,
+             dz.gs_division, dz.delivery_fee AS zone_delivery_fee,
+             dz.estimated_delivery_time_min
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.user_id
+      LEFT JOIN delivery_zones dz ON o.zone_id = dz.zone_id
+      WHERE o.order_type = 'Delivery' AND o.delivery_person_id = ?
+      ORDER BY o.created_at DESC
+    `;
+    
+    db.query(query, [staffId], (err, results) => {
+      if (err) {
+        console.error('Error fetching staff deliveries:', err);
+        return res.status(500).json({ 
+          message: 'Error fetching staff deliveries', 
+          error: err.message 
+        });
+      }
+      
+      // If no orders, return empty array
+      if (results.length === 0) {
+        return res.json([]);
+      }
+      
+      // Get all order items for these orders
+      const orderIds = results.map(order => order.order_id);
+      
+      const itemsQuery = `
+        SELECT oi.*, m.menu_name, m.price AS menu_price
+        FROM order_items oi
+        JOIN menu m ON oi.menu_id = m.menu_id
+        WHERE oi.order_id IN (?)
+      `;
+      
+      db.query(itemsQuery, [orderIds], (err, itemsResults) => {
+        if (err) {
+          console.error('Error fetching order items:', err);
+          // Return orders without items if there's an error
+          return res.json(transformDeliveryOrders(results, {}));
+        }
+        
+        // Group items by order_id
+        const itemsByOrder = {};
+        itemsResults.forEach(item => {
+          if (!itemsByOrder[item.order_id]) {
+            itemsByOrder[item.order_id] = [];
+          }
+          itemsByOrder[item.order_id].push({
+            name: item.menu_name,
+            quantity: item.quantity,
+            price: parseFloat(item.price || item.menu_price)
+          });
+        });
+        
+        // Transform the data to match the expected format in the frontend
+        const deliveries = transformDeliveryOrders(results, itemsByOrder);
+        res.json(deliveries);
+      });
+    });
+  } catch (error) {
+    console.error('Server error in getStaffDeliveries:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Helper function to transform order data to the format expected by the frontend
+function transformDeliveryOrders(orders, itemsByOrder) {
+  return orders.map(order => {
+    // Create a delivery ID using the order_id with a DEL prefix
+    const deliveryId = `DEL-${order.order_id.toString().padStart(3, '0')}`;
+    
+    // Map status from database to frontend
+    let status;
+    if (order.delivery_status === 'Pending' || order.delivery_status === 'Assigned') {
+      status = 'Assigned';
+    } else if (order.delivery_status === 'In Transit') {
+      status = 'In Transit';
+    } else if (order.delivery_status === 'Delivered') {
+      status = 'Delivered';
+    } else if (order.delivery_status === 'Canceled') {
+      status = 'Canceled';
+    } else {
+      status = 'Assigned'; // Default status
+    }
+    
+    // Format customer name
+    const customerName = order.first_name || order.last_name ? 
+      `${order.first_name || ''} ${order.last_name || ''}`.trim() : 
+      `Customer #${order.user_id}`;
+    
+    return {
+      id: deliveryId,
+      orderId: `ORD-${order.order_id}`,
+      customer: {
+        name: customerName,
+        address: order.delivery_address || 'Address not provided',
+        phone: order.phone_number || 'Phone not provided'
+      },
+      items: itemsByOrder[order.order_id] || [],
+      status: status,
+      timestamp: order.created_at,
+      estimatedDeliveryTime: order.estimated_delivery_time_min ? 
+        `${order.estimated_delivery_time_min} min` : 
+        '30-45 min',
+      totalAmount: `LKR ${parseFloat(order.total_amount).toFixed(2)}`,
+      payment: {
+        method: order.payment_type === 'cash' ? 'Cash' : 'Card',
+        status: order.payment_status === 'paid' ? 'Paid' : 'Pending'
+      }
+    };
+  });
+}

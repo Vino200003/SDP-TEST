@@ -9,128 +9,13 @@ import axios from 'axios';
 const API_URL = 'http://localhost:5000/api';
 
 const DeliveryDashboard = ({ onLogout }) => {
-  const [deliveries, setDeliveries] = useState([
-    {
-      id: 'DEL-001',
-      orderId: 'ORD-002',
-      customer: {
-        name: 'John Smith',
-        address: '123 Main St, Cityville',
-        phone: '555-1234'
-      },
-      items: [
-        { name: 'Margherita Pizza', quantity: 1 },
-        { name: 'Garlic Bread', quantity: 1 }
-      ],
-      status: 'Ready for Pickup',
-      timestamp: '2023-10-12T10:35:00',
-      estimatedDeliveryTime: '25-35 min',
-      totalAmount: '$24.99',
-      payment: {
-        method: 'Card',
-        status: 'Paid'
-      }
-    },
-    {
-      id: 'DEL-002',
-      orderId: 'ORD-005',
-      customer: {
-        name: 'Emily Johnson',
-        address: '456 Oak Ave, Townsville',
-        phone: '555-5678'
-      },
-      items: [
-        { name: 'Chicken Curry', quantity: 1 },
-        { name: 'Naan Bread', quantity: 2 },
-        { name: 'Mango Lassi', quantity: 1 }
-      ],
-      status: 'Ready for Pickup',
-      timestamp: '2023-10-12T10:40:00',
-      estimatedDeliveryTime: '35-45 min',
-      totalAmount: '$32.50',
-      payment: {
-        method: 'Cash',
-        status: 'Pending'
-      }
-    },
-    {
-      id: 'DEL-003',
-      orderId: 'ORD-007',
-      customer: {
-        name: 'Michael Brown',
-        address: '789 Pine Blvd, Villagetown',
-        phone: '555-9012'
-      },
-      items: [
-        { name: 'Beef Burger', quantity: 2 },
-        { name: 'Onion Rings', quantity: 1 },
-        { name: 'Chocolate Milkshake', quantity: 2 }
-      ],
-      status: 'Out for Delivery',
-      timestamp: '2023-10-12T10:20:00',
-      estimatedDeliveryTime: '10-15 min',
-      totalAmount: '$38.75',
-      payment: {
-        method: 'Cash',
-        status: 'Pending'
-      }
-    }
-  ]);
-
+  const [deliveries, setDeliveries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('All');
   const [expandedItems, setExpandedItems] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const updateDeliveryStatus = (deliveryId, newStatus) => {
-    setDeliveries(deliveries.map(delivery => 
-      delivery.id === deliveryId ? { ...delivery, status: newStatus } : delivery
-    ));
-  };
-
-  const updatePaymentStatus = (deliveryId, newStatus) => {
-    setDeliveries(deliveries.map(delivery => 
-      delivery.id === deliveryId 
-        ? { ...delivery, payment: { ...delivery.payment, status: newStatus } } 
-        : delivery
-    ));
-  };
-
-  const filteredDeliveries = activeFilter === 'All' 
-    ? deliveries 
-    : deliveries.filter(delivery => delivery.status === activeFilter);
-
-  const toggleItems = (deliveryId) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [deliveryId]: !prev[deliveryId]
-    }));
-  };
-
-  const stats = {
-    total: deliveries.length,
-    readyForPickup: deliveries.filter(d => d.status === 'Ready for Pickup').length,
-    outForDelivery: deliveries.filter(d => d.status === 'Out for Delivery').length,
-    delivered: deliveries.filter(d => d.status === 'Delivered').length,
-  };
-
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-  
-  const getBadgeClass = (status) => {
-    switch(status) {
-      case 'Ready for Pickup': return 'badge-pickup';
-      case 'Out for Delivery': return 'badge-delivery';
-      case 'Delivered': return 'badge-delivered';
-      default: return '';
-    }
-  };
-
-  const getPaymentBadgeClass = (method, status) => {
-    if (method === 'Card' && status === 'Paid') return 'badge-paid';
-    if (method === 'Cash' && status === 'Paid') return 'badge-paid';
-    return 'badge-pending-payment';
-  };
+  const [showRefreshMessage, setShowRefreshMessage] = useState(false);
 
   // Add state for showing profile page
   const [showProfile, setShowProfile] = useState(false);
@@ -143,37 +28,6 @@ const DeliveryDashboard = ({ onLogout }) => {
     joinDate: "",
   });
   
-  // Fetch staff data on component mount
-  useEffect(() => {
-    const fetchStaffData = async () => {
-      try {
-        const staffId = localStorage.getItem('staffId');
-        if (!staffId || staffId === 'null') {
-          console.log('No staff ID found in localStorage');
-          return;
-        }
-        
-        const response = await axios.get(`${API_URL}/staff/profile/${staffId}`);
-        if (response.data) {
-          // Check if this staff is a delivery staff (delivery role)
-          if (response.data.role === 'delivery') {
-            setStaffData({
-              name: `${response.data.first_name} ${response.data.last_name}`,
-              role: 'Delivery Staff'
-            });
-          } else {
-            console.warn('Non-delivery staff accessing delivery dashboard');
-            // Handle unauthorized access if needed
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching staff data:', error);
-      }
-    };
-    
-    fetchStaffData();
-  }, []);
-
   // Update document title
   useEffect(() => {
     document.title = "Delivery Dashboard";
@@ -181,6 +35,30 @@ const DeliveryDashboard = ({ onLogout }) => {
       document.title = "Restaurant Staff Portal"; // Reset on unmount
     };
   }, []);
+  
+  // Fetch delivery orders assigned to this staff member
+  const fetchDeliveries = async () => {
+    try {
+      setLoading(true);
+      const staffId = localStorage.getItem('staffId');
+      
+      if (!staffId) {
+        console.log('No staff ID found in localStorage');
+        setError('Authentication error. Please log in again.');
+        setLoading(false);
+        return;
+      }
+      
+      const response = await axios.get(`${API_URL}/delivery/staff/${staffId}/deliveries`);
+      setDeliveries(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching deliveries:', err);
+      setError('Failed to load deliveries. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Check authorization and fetch staff data
   useEffect(() => {
@@ -227,9 +105,109 @@ const DeliveryDashboard = ({ onLogout }) => {
     checkAuthAndFetchData();
   }, [onLogout]);
 
+  // Initial fetch on component mount
+  useEffect(() => {
+    fetchDeliveries();
+    
+    // Set up auto-refresh every 2 minutes
+    const intervalId = setInterval(fetchDeliveries, 120000);
+    
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const updateDeliveryStatus = async (deliveryId, newStatus) => {
+    try {
+      // Extract the numeric order ID from the delivery ID (e.g., "DEL-001" -> "1")
+      const orderId = deliveryId.replace('DEL-', '').replace(/^0+/, '');
+      
+      // Map frontend status to backend status
+      let backendStatus;
+      if (newStatus === 'In Transit') {
+        backendStatus = 'on_the_way';
+      } else if (newStatus === 'Delivered') {
+        backendStatus = 'delivered';
+      } else if (newStatus === 'Canceled') {
+        backendStatus = 'cancelled';
+      } else {
+        backendStatus = 'pending';
+      }
+      
+      await axios.put(`${API_URL}/delivery/orders/${orderId}/status`, {
+        status: backendStatus
+      });
+      
+      // Update local state to reflect the change
+      setDeliveries(deliveries.map(delivery => 
+        delivery.id === deliveryId ? { ...delivery, status: newStatus } : delivery
+      ));
+    } catch (err) {
+      console.error('Error updating delivery status:', err);
+      alert('Failed to update delivery status. Please try again.');
+    }
+  };
+
+  const updatePaymentStatus = async (deliveryId, newStatus) => {
+    try {
+      // Extract the numeric order ID from the delivery ID
+      const orderId = deliveryId.replace('DEL-', '').replace(/^0+/, '');
+      
+      // Update payment status in the database
+      await axios.put(`${API_URL}/orders/${orderId}`, {
+        payment_status: newStatus === 'Paid' ? 'paid' : 'unpaid'
+      });
+      
+      // Update local state
+      setDeliveries(deliveries.map(delivery => 
+        delivery.id === deliveryId 
+          ? { ...delivery, payment: { ...delivery.payment, status: newStatus } } 
+          : delivery
+      ));
+    } catch (err) {
+      console.error('Error updating payment status:', err);
+      alert('Failed to update payment status. Please try again.');
+    }
+  };
+
+  const filteredDeliveries = activeFilter === 'All' 
+    ? deliveries 
+    : deliveries.filter(delivery => delivery.status === activeFilter);
+
+  const toggleItems = (deliveryId) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [deliveryId]: !prev[deliveryId]
+    }));
+  };
+
+  const stats = {
+    total: deliveries.length,
+    assigned: deliveries.filter(d => d.status === 'Assigned').length,
+    inTransit: deliveries.filter(d => d.status === 'In Transit').length,
+    delivered: deliveries.filter(d => d.status === 'Delivered').length,
+  };
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+  
+  const getBadgeClass = (status) => {
+    switch(status) {
+      case 'Assigned': return 'badge-pickup';
+      case 'In Transit': return 'badge-delivery';
+      case 'Delivered': return 'badge-delivered';
+      case 'Canceled': return 'badge-cancelled';
+      default: return '';
+    }
+  };
+
+  const getPaymentBadgeClass = (method, status) => {
+    if (status === 'Paid') return 'badge-paid';
+    return 'badge-pending-payment';
+  };
+
   // Handle profile button click in header
   const handleProfileClick = () => {
-    console.log('Profile button clicked, sending staffData:', staffData);
     setShowProfile(true);
   };
   
@@ -243,32 +221,12 @@ const DeliveryDashboard = ({ onLogout }) => {
     setIsRefreshing(true);
     
     try {
-      // Refresh deliveries data
-      // You would replace this with your actual data fetching logic
-      const refreshedDeliveries = [...deliveries];
-      setDeliveries(refreshedDeliveries);
-      
-      // Refresh staff data if needed
-      const staffId = localStorage.getItem('staffId');
-      if (staffId) {
-        const response = await axios.get(`${API_URL}/staff/profile/${staffId}`);
-        if (response.data) {
-          setStaffData({
-            ...response.data,
-            name: `${response.data.first_name} ${response.data.last_name}`,
-            role: 'Delivery Staff'
-          });
-        }
-      }
+      await fetchDeliveries();
       
       // Show a temporary success message
-      const successElement = document.createElement('div');
-      successElement.className = 'refresh-success-message';
-      successElement.innerHTML = '<i class="fas fa-check-circle"></i> Dashboard refreshed!';
-      document.body.appendChild(successElement);
-      
+      setShowRefreshMessage(true);
       setTimeout(() => {
-        document.body.removeChild(successElement);
+        setShowRefreshMessage(false);
       }, 2000);
       
     } catch (error) {
@@ -301,6 +259,12 @@ const DeliveryDashboard = ({ onLogout }) => {
       <div className="dashboard-content">
         <DeliveryStats stats={stats} />
         
+        {showRefreshMessage && (
+          <div className="refresh-success-message">
+            <i className="fas fa-check-circle"></i> Dashboard refreshed!
+          </div>
+        )}
+        
         <div className="dashboard-main-content">
           <div className="deliveries-section">
             <div className="orders-header">
@@ -325,16 +289,16 @@ const DeliveryDashboard = ({ onLogout }) => {
                     All
                   </button>
                   <button 
-                    className={`filter-button ${activeFilter === 'Ready for Pickup' ? 'active' : ''}`}
-                    onClick={() => setActiveFilter('Ready for Pickup')}
+                    className={`filter-button ${activeFilter === 'Assigned' ? 'active' : ''}`}
+                    onClick={() => setActiveFilter('Assigned')}
                   >
-                    Ready for Pickup
+                    Assigned
                   </button>
                   <button 
-                    className={`filter-button ${activeFilter === 'Out for Delivery' ? 'active' : ''}`}
-                    onClick={() => setActiveFilter('Out for Delivery')}
+                    className={`filter-button ${activeFilter === 'In Transit' ? 'active' : ''}`}
+                    onClick={() => setActiveFilter('In Transit')}
                   >
-                    Out for Delivery
+                    In Transit
                   </button>
                   <button 
                     className={`filter-button ${activeFilter === 'Delivered' ? 'active' : ''}`}
@@ -347,7 +311,20 @@ const DeliveryDashboard = ({ onLogout }) => {
             </div>
             
             <div className="orders-grid">
-              {filteredDeliveries.length > 0 ? (
+              {loading ? (
+                <div className="loading-indicator">
+                  <i className="fas fa-spinner fa-spin"></i>
+                  <p>Loading deliveries...</p>
+                </div>
+              ) : error ? (
+                <div className="error-message">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  <p>{error}</p>
+                  <button onClick={fetchDeliveries} className="retry-btn">
+                    Retry
+                  </button>
+                </div>
+              ) : filteredDeliveries.length > 0 ? (
                 <div className="order-table-container">
                   <table className="order-table">
                     <thead>
@@ -411,14 +388,15 @@ const DeliveryDashboard = ({ onLogout }) => {
                                 value={delivery.status}
                                 onChange={(e) => updateDeliveryStatus(delivery.id, e.target.value)}
                               >
-                                <option value="Ready for Pickup">Ready for Pickup</option>
-                                <option value="Out for Delivery">Out for Delivery</option>
+                                <option value="Assigned">Assigned</option>
+                                <option value="In Transit">In Transit</option>
                                 <option value="Delivered">Delivered</option>
+                                <option value="Canceled">Canceled</option>
                               </select>
                               <button 
                                 className="update-button"
                                 onClick={() => {
-                                  const statusOptions = ['Ready for Pickup', 'Out for Delivery', 'Delivered'];
+                                  const statusOptions = ['Assigned', 'In Transit', 'Delivered'];
                                   const currentIndex = statusOptions.indexOf(delivery.status);
                                   if (currentIndex < statusOptions.length - 1) {
                                     updateDeliveryStatus(delivery.id, statusOptions[currentIndex + 1]);
