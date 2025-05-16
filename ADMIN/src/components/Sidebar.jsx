@@ -84,12 +84,6 @@ function Sidebar() {
               Admin Settings
             </Link>
           </li>
-          <li>
-            <Link to="/reports" className={`nav-link ${isRouteActive('/reports') ? 'active' : ''}`}>
-              <span className="icon">📈</span>
-              Reports
-            </Link>
-          </li>
         </ul>
       </nav>
       <div className="sidebar-footer">

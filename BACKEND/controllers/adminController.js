@@ -128,10 +128,15 @@ exports.loginAdmin = async (req, res) => {
 
 // Helper function to handle successful login
 function loginSuccess(admin, res) {
-  // Generate JWT token
+  // Ensure we're using the correct ID field
+  const adminId = admin.admin_id;
+  
+  console.log('Admin logging in with ID:', adminId);
+  
+  // Generate JWT token with proper ID
   const token = jwt.sign(
     { 
-      id: admin.admin_id, 
+      id: adminId, 
       email: admin.email,
       isAdmin: true 
     },

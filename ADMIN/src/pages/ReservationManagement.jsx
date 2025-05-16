@@ -90,15 +90,28 @@ function ReservationManagement() {
       // Update server status based on if we got mock data or real data
       setIsServerDown(!serverStatus.isAvailable);
       if (data.reservations) {
-        setReservations(data.reservations);
-        setFilteredReservations(data.reservations);
+        // Sort reservations by ID in descending order (newest first)
+        const sortedReservations = [...data.reservations].sort((a, b) => {
+          const idA = a.reserve_id || a.reservation_id || 0;
+          const idB = b.reserve_id || b.reservation_id || 0;
+          return idB - idA;
+        });
+        setReservations(sortedReservations);
+        setFilteredReservations(sortedReservations);
         if (data.pagination) {
           setPagination(data.pagination);
         }
       } else {
         // If the API returns an array instead of an object with pagination
-        setReservations(Array.isArray(data) ? data : []);
-        setFilteredReservations(Array.isArray(data) ? data : []);
+        const dataArray = Array.isArray(data) ? data : [];
+        // Sort by ID in descending order
+        const sortedData = [...dataArray].sort((a, b) => {
+          const idA = a.reserve_id || a.reservation_id || 0;
+          const idB = b.reserve_id || b.reservation_id || 0;
+          return idB - idA;
+        });
+        setReservations(sortedData);
+        setFilteredReservations(sortedData);
       }
     } catch (error) {
       notify(`Error fetching reservations: ${error.message}`, 'error');

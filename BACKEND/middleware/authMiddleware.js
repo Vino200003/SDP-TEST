@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
+require('dotenv').config();
 
 exports.protect = (req, res, next) => {
   // Get token from header
@@ -57,4 +58,35 @@ exports.isAdmin = (req, res, next) => {
     // User is an admin, proceed
     next();
   });
+};
+
+exports.verifyAdminToken = (req, res, next) => {
+  // Get token from header
+  const token = req.header('x-auth-token') || 
+                (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') 
+                 ? req.headers.authorization.split(' ')[1] : null);
+  
+  // Check if no token
+  if (!token) {
+    console.log('No token provided in request');
+    return res.status(401).json({ message: 'No token, authorization denied' });
+  }
+  
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Add admin info to request
+    req.admin = {
+      id: decoded.id,
+      email: decoded.email,
+      isAdmin: decoded.isAdmin
+    };
+    
+    console.log('Admin verified:', req.admin);
+    next();
+  } catch (err) {
+    console.error('Token verification error:', err);
+    res.status(401).json({ message: 'Token is not valid' });
+  }
 };

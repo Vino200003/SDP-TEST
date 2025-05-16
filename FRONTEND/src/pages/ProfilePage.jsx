@@ -118,7 +118,9 @@ const ProfilePage = () => {
           console.log('Fetching reservations...');
           const reservationsData = await getUserReservations();
           console.log('Received reservations:', reservationsData);
-          setReservations(reservationsData);
+          // Sort reservations by ID in descending order (newest first)
+          const sortedReservations = [...reservationsData].sort((a, b) => b.reserve_id - a.reserve_id);
+          setReservations(sortedReservations);
         } catch (err) {
           console.error('Error fetching reservations:', err);
           setSubmitError('Could not load your reservations. Please try again later.');

@@ -14,6 +14,7 @@ const inventoryRoutes = require('./routes/inventoryRoutes'); // Add inventory ro
 const supplierRoutes = require('./routes/supplierRoutes'); // Add supplier routes
 const staffRoutes = require('./routes/staffRoutes'); // Add staff routes
 const deliveryRoutes = require('./routes/deliveryRoutes'); // Import delivery routes
+const adminSettingsRoutes = require('./routes/adminSettings'); // Import admin settings routes
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/api/inventory', inventoryRoutes); // Register inventory routes
 app.use('/api/suppliers', supplierRoutes); // Register supplier routes
 app.use('/api/staff', staffRoutes); // Register staff routes
 app.use('/api/delivery', deliveryRoutes); // Register delivery routes
+app.use('/api/admin/settings', adminSettingsRoutes); // Register admin settings routes
 
 // Default route - add more logging to help with debugging
 app.get('/', (req, res) => {
