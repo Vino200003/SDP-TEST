@@ -769,7 +769,7 @@ const CheckoutPage = () => {
                         <option value="">Select Delivery Zone</option>
                         {deliveryZones.map(zone => (
                           <option key={zone.zone_id} value={zone.zone_id}>
-                            {zone.gs_division} - Delivery Fee: LKR {parseFloat(zone.delivery_fee).toFixed(2)}
+                            {zone.gs_division}
                           </option>
                         ))}
                       </select>
