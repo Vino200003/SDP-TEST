@@ -112,13 +112,9 @@ function Login({ onLogin }) {
           </button>
         </form>
         
-        {/* Admin credentials helper */}
+        {/* Admin credentials helper - removed for security */}
         <div className="login-footer">
-          <p className="default-credentials">
-            Default Admin: admin@restaurant.com / admin123
-            <br />
-            Special Admin: jenivimaha@gmail.com / admin1234
-          </p>
+          <p className="note">Please enter your administrator credentials to login</p>
         </div>
       </div>
     </div>
